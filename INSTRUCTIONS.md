@@ -50,18 +50,25 @@ dotnet <путь-к-bin/Release/net10.0/Disassembly.Tool.dll> --solution <пут
 ### Базовый синтаксис
 
 ```bash
+# Анализ всего решения
 dotnet-disassembly --solution <путь-к-файлу.sln> [--output <путь-к-директории>]
+
+# Анализ отдельного проекта
+dotnet-disassembly --project <путь-к-файлу.csproj> [--output <путь-к-директории>]
 ```
 
 ### Параметры
 
-- `--solution, -s <path>` — **Обязательный параметр**. Путь к файлу решения (.sln)
+- `--solution, -s <path>` — Путь к файлу решения (.sln). Обязателен, если не указан `--project`
+- `--project, -p <path>` — Путь к файлу проекта (.csproj). Обязателен, если не указан `--solution`
 - `--output, -o <path>` — **Опциональный параметр**. Путь к директории для вывода результатов. По умолчанию: `./NugetDisassembly`
 - `--help, -h` — Показать справку по использованию
 
+**Примечание:** Должен быть указан либо `--solution`, либо `--project`, но не оба одновременно.
+
 ### Примеры использования
 
-#### Пример 1: Базовое использование
+#### Пример 1: Анализ всего решения
 
 ```bash
 dotnet-disassembly --solution MySolution.sln
@@ -72,6 +79,18 @@ dotnet-disassembly --solution MySolution.sln
 - Найдет все NuGet пакеты во всех проектах решения
 - Создаст директорию `./NugetDisassembly` (если её нет)
 - Сгенерирует C# файлы с интерфейсами всех пакетов
+
+#### Пример 1.1: Анализ отдельного проекта
+
+```bash
+dotnet-disassembly --project MyProject.csproj
+```
+
+Эта команда:
+- Проанализирует только указанный проект `MyProject.csproj`
+- Найдет все NuGet пакеты, используемые в этом проекте
+- Создаст директорию `./NugetDisassembly` (если её нет)
+- Сгенерирует C# файлы с интерфейсами всех пакетов проекта
 
 #### Пример 2: Указание выходной директории
 
@@ -84,7 +103,11 @@ dotnet-disassembly --solution MySolution.sln --output ./output/api-interfaces
 #### Пример 3: Использование коротких параметров
 
 ```bash
+# Для решения
 dotnet-disassembly -s MySolution.sln -o ./api
+
+# Для проекта
+dotnet-disassembly -p MyProject.csproj -o ./api
 ```
 
 #### Пример 4: Просмотр справки
@@ -346,8 +369,11 @@ namespace System.ComponentModel
 ### Сценарий 1: Анализ зависимостей проекта
 
 ```bash
-# Проанализировать все зависимости проекта
+# Проанализировать все зависимости всего решения
 dotnet-disassembly --solution MyProject.sln --output ./api-docs
+
+# Или проанализировать зависимости только одного проекта
+dotnet-disassembly --project MyProject/MyProject.csproj --output ./api-docs
 
 # Просмотреть структуру
 tree ./api-docs
@@ -356,8 +382,11 @@ tree ./api-docs
 ### Сценарий 2: Создание документации API
 
 ```bash
-# Извлечь интерфейсы всех пакетов
+# Извлечь интерфейсы всех пакетов из решения
 dotnet-disassembly -s MySolution.sln -o ./documentation/api
+
+# Или извлечь интерфейсы только из одного проекта
+dotnet-disassembly -p MyProject.csproj -o ./documentation/api
 
 # Использовать сгенерированные файлы для создания документации
 ```
@@ -404,11 +433,15 @@ dotnet restore <путь-к-решению.sln>
 - DLL файл не поврежден
 - У вас есть права на чтение файлов в NuGet кэше
 
-### Проблема: "Solution file not found"
+### Проблема: "Solution file not found" или "Failed to parse project"
 
-**Решение**: Проверьте путь к файлу решения. Используйте абсолютный путь, если относительный не работает:
+**Решение**: Проверьте путь к файлу решения или проекта. Используйте абсолютный путь, если относительный не работает:
 ```bash
+# Для решения
 dotnet-disassembly --solution /полный/путь/к/MySolution.sln
+
+# Для проекта
+dotnet-disassembly --project /полный/путь/к/MyProject.csproj
 ```
 
 ### Проблема: Пустые файлы или отсутствие типов

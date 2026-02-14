@@ -17,6 +17,7 @@ class Program
         }
 
         string? solutionPath = null;
+        string? projectPath = null;
         string outputPath = "./NugetDisassembly";
 
         // Простой парсинг аргументов
@@ -28,6 +29,12 @@ class Program
                     if (i + 1 < args.Length)
                     {
                         solutionPath = args[++i];
+                    }
+                    break;
+                case "--project" or "-p":
+                    if (i + 1 < args.Length)
+                    {
+                        projectPath = args[++i];
                     }
                     break;
                 case "--output" or "-o":
@@ -42,16 +49,31 @@ class Program
             }
         }
 
-        if (string.IsNullOrWhiteSpace(solutionPath))
+        // Валидация: должен быть указан либо solution, либо project, но не оба
+        if (!string.IsNullOrWhiteSpace(solutionPath) && !string.IsNullOrWhiteSpace(projectPath))
         {
-            Console.WriteLine("Error: --solution parameter is required");
+            Console.WriteLine("Error: Cannot specify both --solution and --project. Please use only one.");
+            PrintUsage();
+            return 1;
+        }
+
+        if (string.IsNullOrWhiteSpace(solutionPath) && string.IsNullOrWhiteSpace(projectPath))
+        {
+            Console.WriteLine("Error: Either --solution or --project parameter is required");
             PrintUsage();
             return 1;
         }
 
         try
         {
-            ProcessSolution(solutionPath, outputPath);
+            if (!string.IsNullOrWhiteSpace(solutionPath))
+            {
+                ProcessSolution(solutionPath, outputPath);
+            }
+            else if (!string.IsNullOrWhiteSpace(projectPath))
+            {
+                ProcessProject(projectPath, outputPath);
+            }
             return 0;
         }
         catch (Exception ex)
@@ -67,9 +89,12 @@ class Program
         Console.WriteLine("dotnet-disassembly [options]");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  --solution, -s <path>    Path to .sln file (required)");
+        Console.WriteLine("  --solution, -s <path>    Path to .sln file (required if --project is not specified)");
+        Console.WriteLine("  --project, -p <path>      Path to .csproj file (required if --solution is not specified)");
         Console.WriteLine("  --output, -o <path>      Output directory (default: ./NugetDisassembly)");
         Console.WriteLine("  --help, -h               Show this help message");
+        Console.WriteLine();
+        Console.WriteLine("Note: Either --solution or --project must be specified, but not both.");
     }
 
     static void ProcessSolution(string solutionPath, string outputPath)
@@ -84,6 +109,39 @@ class Program
 
         // 2. Резолвинг NuGet пакетов
         var packageResolver = new NuGetPackageResolver();
+        var packages = packageResolver.GetAllPackages(projects);
+        Console.WriteLine($"Found {packages.Count} unique package(s)");
+
+        // 3. Обработка каждого пакета
+        foreach (var package in packages)
+        {
+            Console.WriteLine($"Processing package: {package.Name} {package.Version}");
+            ProcessPackage(package, outputPath);
+        }
+
+        Console.WriteLine("Done!");
+    }
+
+    static void ProcessProject(string projectPath, string outputPath)
+    {
+        Console.WriteLine($"Processing project: {projectPath}");
+        Console.WriteLine($"Output directory: {outputPath}");
+
+        // 1. Анализ проекта
+        var solutionAnalyzer = new SolutionAnalyzer();
+        var projectInfo = solutionAnalyzer.ParseProject(projectPath);
+        
+        if (projectInfo == null)
+        {
+            throw new InvalidOperationException($"Failed to parse project: {projectPath}");
+        }
+
+        Console.WriteLine($"Project: {projectInfo.Name}");
+        Console.WriteLine($"Found {projectInfo.PackageReferences.Count} package reference(s)");
+
+        // 2. Резолвинг NuGet пакетов
+        var packageResolver = new NuGetPackageResolver();
+        var projects = new List<ProjectInfo> { projectInfo };
         var packages = packageResolver.GetAllPackages(projects);
         Console.WriteLine($"Found {packages.Count} unique package(s)");
 
