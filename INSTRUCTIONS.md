@@ -167,6 +167,7 @@ NugetDisassembly/
 - ✅ Возвращаемые типы
 - ✅ Базовые классы и интерфейсы
 - ✅ Модификаторы: `static`, `abstract`, `virtual`, `sealed`
+- ✅ Extension методы (определяются через ExtensionAttribute, генерируются с ключевым словом `this` для первого параметра)
 - ✅ XML комментарии (если доступны в .xml файлах документации)
 
 ## Формат генерируемого кода
@@ -249,6 +250,32 @@ namespace System.Collections.Generic
     }
 }
 ```
+
+### Пример extension метода
+
+Extension методы определяются автоматически через атрибут `ExtensionAttribute` и генерируются с ключевым словом `this` для первого параметра:
+
+```csharp
+namespace System.Linq
+{
+    public static class Enumerable
+    {
+        // Implementation in original library
+        
+        public static IEnumerable<TSource> Where<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate);
+        
+        public static TSource First<TSource>(this IEnumerable<TSource> source);
+        
+        public static int Count<TSource>(this IEnumerable<TSource> source);
+    }
+}
+```
+
+**Особенности обработки extension методов:**
+- Extension методы автоматически определяются по наличию атрибута `System.Runtime.CompilerServices.ExtensionAttribute`
+- Первый параметр extension метода получает модификатор `this`
+- Остальные параметры extension метода обрабатываются как обычные параметры
+- Обычные статические методы (без ExtensionAttribute) не получают модификатор `this`
 
 ## Обработка ошибок
 
