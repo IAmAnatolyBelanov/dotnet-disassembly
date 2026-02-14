@@ -32,7 +32,8 @@ public class RoslynCodeGeneratorTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            typeof(object)
+            typeof(object),
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -55,7 +56,8 @@ public class RoslynCodeGeneratorTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -78,7 +80,8 @@ public class RoslynCodeGeneratorTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            typeof(ValueType)
+            typeof(ValueType),
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -101,7 +104,8 @@ public class RoslynCodeGeneratorTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            typeof(Enum)
+            typeof(Enum),
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -124,7 +128,8 @@ public class RoslynCodeGeneratorTests
             new List<string> { "T", "U" },
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            typeof(object)
+            typeof(object),
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -148,7 +153,8 @@ public class RoslynCodeGeneratorTests
             "void TestMethod()",
             typeof(void),
             new List<ParameterMetadata>(),
-            methodInfo
+            methodInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -170,7 +176,8 @@ public class RoslynCodeGeneratorTests
             "int TestProperty",
             typeof(int),
             new List<ParameterMetadata>(),
-            propertyInfo
+            propertyInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -199,7 +206,8 @@ public class RoslynCodeGeneratorTests
             "int TestField",
             typeof(int),
             new List<ParameterMetadata>(),
-            fieldInfo
+            fieldInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -230,7 +238,8 @@ public class RoslynCodeGeneratorTests
                 "event EventHandler TestEvent",
                 typeof(EventHandler),
                 new List<ParameterMetadata>(),
-                eventInfo
+                eventInfo,
+                new List<AttributeMetadata>()
             );
 
             // Act
@@ -256,7 +265,8 @@ public class RoslynCodeGeneratorTests
             {
                 new ParameterMetadata("chars", "char[]", false, null)
             },
-            constructorInfo
+            constructorInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -279,7 +289,8 @@ public class RoslynCodeGeneratorTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            typeof(object)
+            typeof(object),
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -303,7 +314,8 @@ public class RoslynCodeGeneratorTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            typeof(object)
+            typeof(object),
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -347,7 +359,8 @@ public class RoslynCodeGeneratorTests
                 // TypeName содержит "string?" для nullable reference type
                 new ParameterMetadata("param", "string?", false, null)
             },
-            methodInfo
+            methodInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -384,7 +397,8 @@ public class RoslynCodeGeneratorTests
             {
                 new ParameterMetadata("str", "string", false, null)
             },
-            extensionMethod
+            extensionMethod,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -422,7 +436,8 @@ public class RoslynCodeGeneratorTests
                 new ParameterMetadata("str", "string", false, null),
                 new ParameterMetadata("suffix", "string", false, null)
             },
-            extensionMethod
+            extensionMethod,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -464,7 +479,8 @@ public class RoslynCodeGeneratorTests
             {
                 new ParameterMetadata("str", "string", false, null)
             },
-            staticMethod
+            staticMethod,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -505,7 +521,8 @@ public class RoslynCodeGeneratorTests
             {
                 new ParameterMetadata("str", "string", false, null)
             },
-            extensionMethod
+            extensionMethod,
+            new List<AttributeMetadata>()
         );
 
         // Act

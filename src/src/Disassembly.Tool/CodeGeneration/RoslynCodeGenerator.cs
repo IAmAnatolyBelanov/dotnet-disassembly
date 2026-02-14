@@ -57,6 +57,12 @@ public class RoslynCodeGenerator
                 enumDecl = enumDecl.WithMembers(SyntaxFactory.SeparatedList(enumMembers));
             }
             
+            // Добавляем атрибуты
+            if (typeMetadata.Attributes.Count > 0)
+            {
+                enumDecl = enumDecl.WithAttributeLists(GenerateAttributeLists(typeMetadata.Attributes));
+            }
+            
             // Добавляем XML комментарии для enum типа
             if (typeMetadata.OriginalType != null)
             {
@@ -133,6 +139,12 @@ public class RoslynCodeGenerator
         }
 
         declaration = declaration.WithMembers(SyntaxFactory.List(members));
+
+        // Добавляем атрибуты
+        if (typeMetadata.Attributes.Count > 0)
+        {
+            declaration = declaration.WithAttributeLists(GenerateAttributeLists(typeMetadata.Attributes));
+        }
 
         // Добавляем XML комментарии
         if (typeMetadata.OriginalType != null)
@@ -253,6 +265,12 @@ public class RoslynCodeGenerator
             MemberType.Constructor => GenerateConstructor(memberMetadata),
             _ => null
         };
+
+        // Добавляем атрибуты
+        if (result != null && memberMetadata.Attributes.Count > 0)
+        {
+            result = result.WithAttributeLists(GenerateAttributeLists(memberMetadata.Attributes));
+        }
 
         // Добавляем XML комментарии
         if (result != null && memberMetadata.OriginalMember != null)
@@ -853,6 +871,79 @@ public class RoslynCodeGenerator
         var xmlText = xmlBuilder.ToString();
         var trivia = SyntaxFactory.ParseLeadingTrivia(xmlText);
         return trivia;
+    }
+
+    /// <summary>
+    /// Генерирует списки атрибутов из метаданных
+    /// </summary>
+    private SyntaxList<AttributeListSyntax> GenerateAttributeLists(List<Core.AttributeMetadata> attributes)
+    {
+        var attributeLists = new List<AttributeListSyntax>();
+
+        foreach (var attr in attributes)
+        {
+            var attributeSyntax = GenerateAttribute(attr);
+            if (attributeSyntax != null)
+            {
+                var attributeList = SyntaxFactory.AttributeList(
+                    SyntaxFactory.SingletonSeparatedList(attributeSyntax)
+                );
+                attributeLists.Add(attributeList);
+            }
+        }
+
+        return SyntaxFactory.List(attributeLists);
+    }
+
+    /// <summary>
+    /// Генерирует синтаксис атрибута из метаданных
+    /// </summary>
+    private AttributeSyntax? GenerateAttribute(Core.AttributeMetadata attributeMetadata)
+    {
+        try
+        {
+            // Используем полное имя атрибута с namespace (как запрошено пользователем)
+            // Парсим имя атрибута как тип
+            var attributeTypeName = SyntaxFactory.ParseName(attributeMetadata.FullTypeName);
+            
+            // Генерируем аргументы атрибута
+            var arguments = new List<AttributeArgumentSyntax>();
+            
+            foreach (var arg in attributeMetadata.Arguments)
+            {
+                if (arg.Name != null)
+                {
+                    // Именованный аргумент (свойство или поле)
+                    var nameEquals = SyntaxFactory.NameEquals(SyntaxFactory.IdentifierName(arg.Name));
+                    var expression = SyntaxFactory.ParseExpression(arg.Value);
+                    arguments.Add(SyntaxFactory.AttributeArgument(nameEquals, null, expression));
+                }
+                else
+                {
+                    // Позиционный аргумент
+                    var expression = SyntaxFactory.ParseExpression(arg.Value);
+                    arguments.Add(SyntaxFactory.AttributeArgument(expression));
+                }
+            }
+
+            var attribute = SyntaxFactory.Attribute(attributeTypeName);
+            
+            if (arguments.Count > 0)
+            {
+                attribute = attribute.WithArgumentList(
+                    SyntaxFactory.AttributeArgumentList(
+                        SyntaxFactory.SeparatedList(arguments)
+                    )
+                );
+            }
+
+            return attribute;
+        }
+        catch
+        {
+            // Если не удалось сгенерировать атрибут, возвращаем null
+            return null;
+        }
     }
 }
 

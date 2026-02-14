@@ -15,7 +15,8 @@ public record TypeMetadata(
     List<string> GenericParameters,
     List<MemberMetadata> Members,
     List<TypeMetadata> NestedTypes,
-    Type? OriginalType
+    Type? OriginalType,
+    List<AttributeMetadata> Attributes
 );
 
 /// <summary>
@@ -39,7 +40,8 @@ public record MemberMetadata(
     string Signature,
     Type? ReturnType,
     List<ParameterMetadata> Parameters,
-    MemberInfo? OriginalMember
+    MemberInfo? OriginalMember,
+    List<AttributeMetadata> Attributes
 );
 
 /// <summary>
@@ -62,6 +64,22 @@ public record ParameterMetadata(
     string TypeName,
     bool IsOptional,
     object? DefaultValue
+);
+
+/// <summary>
+/// Метаданные атрибута
+/// </summary>
+public record AttributeMetadata(
+    string FullTypeName,
+    List<AttributeArgumentMetadata> Arguments
+);
+
+/// <summary>
+/// Метаданные аргумента атрибута
+/// </summary>
+public record AttributeArgumentMetadata(
+    string? Name,
+    string Value
 );
 
 /// <summary>
@@ -134,6 +152,7 @@ public class AssemblyReflector
 
         var members = ExtractMembers(type);
         var nestedTypes = ExtractNestedTypes(type);
+        var attributes = ExtractAttributes(type);
 
         return new TypeMetadata(
             GetTypeName(type),
@@ -143,7 +162,8 @@ public class AssemblyReflector
             genericParameters,
             members,
             nestedTypes,
-            type
+            type,
+            attributes
         );
     }
 
@@ -273,6 +293,7 @@ public class AssemblyReflector
             .ToList();
 
         var signature = BuildMethodSignature(method, parameters);
+        var attributes = ExtractAttributes(method);
 
         return new MemberMetadata(
             method.Name,
@@ -280,7 +301,8 @@ public class AssemblyReflector
             signature,
             method.ReturnType,
             parameters,
-            method
+            method,
+            attributes
         );
     }
 
@@ -296,6 +318,7 @@ public class AssemblyReflector
             .ToList();
 
         var signature = BuildPropertySignature(property, parameters);
+        var attributes = ExtractAttributes(property);
 
         return new MemberMetadata(
             property.Name,
@@ -303,7 +326,8 @@ public class AssemblyReflector
             signature,
             property.PropertyType,
             parameters,
-            property
+            property,
+            attributes
         );
     }
 
@@ -311,6 +335,7 @@ public class AssemblyReflector
     {
         var typeName = GetTypeDisplayName(field.FieldType, isNullable: NullableReferenceTypeHelper.IsFieldTypeNullable(field), member: field);
         var signature = $"{typeName} {field.Name}";
+        var attributes = ExtractAttributes(field);
 
         return new MemberMetadata(
             field.Name,
@@ -318,7 +343,8 @@ public class AssemblyReflector
             signature,
             field.FieldType,
             new List<ParameterMetadata>(),
-            field
+            field,
+            attributes
         );
     }
 
@@ -328,6 +354,7 @@ public class AssemblyReflector
             ? GetTypeDisplayName(eventInfo.EventHandlerType, isNullable: NullableReferenceTypeHelper.IsEventTypeNullable(eventInfo), member: eventInfo)
             : "object";
         var signature = $"event {typeName} {eventInfo.Name}";
+        var attributes = ExtractAttributes(eventInfo);
 
         return new MemberMetadata(
             eventInfo.Name,
@@ -335,7 +362,8 @@ public class AssemblyReflector
             signature,
             eventInfo.EventHandlerType,
             new List<ParameterMetadata>(),
-            eventInfo
+            eventInfo,
+            attributes
         );
     }
 
@@ -351,6 +379,7 @@ public class AssemblyReflector
             .ToList();
 
         var signature = BuildConstructorSignature(constructor, parameters);
+        var attributes = ExtractAttributes(constructor);
 
         return new MemberMetadata(
             constructor.Name,
@@ -358,7 +387,8 @@ public class AssemblyReflector
             signature,
             null,
             parameters,
-            constructor
+            constructor,
+            attributes
         );
     }
 
@@ -477,6 +507,174 @@ public class AssemblyReflector
         }
         
         return resultName;
+    }
+
+    /// <summary>
+    /// Извлекает атрибуты из типа или члена
+    /// </summary>
+    private List<AttributeMetadata> ExtractAttributes(ICustomAttributeProvider attributeProvider)
+    {
+        var attributes = new List<AttributeMetadata>();
+
+        try
+        {
+            IList<CustomAttributeData> customAttributes;
+            
+            // Используем правильную перегрузку в зависимости от типа
+            if (attributeProvider is Assembly assembly)
+            {
+                customAttributes = CustomAttributeData.GetCustomAttributes(assembly);
+            }
+            else if (attributeProvider is MemberInfo memberInfo)
+            {
+                customAttributes = CustomAttributeData.GetCustomAttributes(memberInfo);
+            }
+            else if (attributeProvider is ParameterInfo parameterInfo)
+            {
+                customAttributes = CustomAttributeData.GetCustomAttributes(parameterInfo);
+            }
+            else if (attributeProvider is Type type)
+            {
+                customAttributes = CustomAttributeData.GetCustomAttributes(type);
+            }
+            else
+            {
+                return attributes;
+            }
+            
+            foreach (var attr in customAttributes)
+            {
+                // Пропускаем компилятор-генерированные атрибуты
+                if (attr.AttributeType.FullName == "System.Runtime.CompilerServices.CompilerGeneratedAttribute")
+                    continue;
+                
+                // Пропускаем NullableAttribute и NullableContextAttribute (они обрабатываются отдельно)
+                if (attr.AttributeType.FullName == "System.Runtime.CompilerServices.NullableAttribute" ||
+                    attr.AttributeType.FullName == "System.Runtime.CompilerServices.NullableContextAttribute")
+                    continue;
+
+                // Используем полное имя атрибута с namespace
+                var fullTypeName = attr.AttributeType.FullName ?? attr.AttributeType.Name;
+                
+                // Извлекаем аргументы атрибута
+                var arguments = new List<AttributeArgumentMetadata>();
+                
+                // Конструкторные аргументы (позиционные)
+                foreach (var arg in attr.ConstructorArguments)
+                {
+                    var value = FormatAttributeArgumentValue(arg);
+                    arguments.Add(new AttributeArgumentMetadata(null, value));
+                }
+                
+                // Именованные аргументы (свойства и поля)
+                foreach (var arg in attr.NamedArguments)
+                {
+                    var value = FormatAttributeArgumentValue(arg.TypedValue);
+                    arguments.Add(new AttributeArgumentMetadata(arg.MemberName, value));
+                }
+                
+                attributes.Add(new AttributeMetadata(fullTypeName, arguments));
+            }
+        }
+        catch
+        {
+            // Игнорируем ошибки при извлечении атрибутов
+        }
+
+        return attributes;
+    }
+
+    /// <summary>
+    /// Форматирует значение аргумента атрибута в строку
+    /// </summary>
+    private string FormatAttributeArgumentValue(CustomAttributeTypedArgument argument)
+    {
+        if (argument.Value == null)
+            return "null";
+
+        var valueType = argument.ArgumentType;
+
+        // Обработка массивов
+        if (valueType.IsArray)
+        {
+            if (argument.Value is System.Collections.ICollection collection)
+            {
+                var items = new List<string>();
+                foreach (var item in collection)
+                {
+                    items.Add(FormatSingleValue(item));
+                }
+                return $"new {GetTypeDisplayName(valueType.GetElementType()!, false)}[] {{ {string.Join(", ", items)} }}";
+            }
+        }
+
+        // Обработка типов (Type)
+        if (valueType == typeof(Type) && argument.Value is Type typeValue)
+        {
+            return $"typeof({GetTypeDisplayName(typeValue, false)})";
+        }
+
+        // Обработка строк
+        if (valueType == typeof(string))
+        {
+            return $"\"{argument.Value}\"";
+        }
+
+        // Обработка char
+        if (valueType == typeof(char))
+        {
+            return $"'{argument.Value}'";
+        }
+
+        // Обработка enum
+        if (valueType.IsEnum)
+        {
+            var enumValue = Enum.GetName(valueType, argument.Value);
+            if (enumValue != null)
+            {
+                return $"{GetTypeDisplayName(valueType, false)}.{enumValue}";
+            }
+        }
+
+        // Обработка bool
+        if (valueType == typeof(bool))
+        {
+            return argument.Value.ToString()!.ToLower();
+        }
+
+        // Для остальных типов просто используем ToString()
+        return argument.Value.ToString() ?? "null";
+    }
+
+    /// <summary>
+    /// Форматирует одиночное значение для массива
+    /// </summary>
+    private string FormatSingleValue(object? value)
+    {
+        if (value == null)
+            return "null";
+
+        var valueType = value.GetType();
+
+        if (valueType == typeof(string))
+            return $"\"{value}\"";
+
+        if (valueType == typeof(char))
+            return $"'{value}'";
+
+        if (valueType.IsEnum)
+        {
+            var enumValue = Enum.GetName(valueType, value);
+            if (enumValue != null)
+            {
+                return $"{GetTypeDisplayName(valueType, false)}.{enumValue}";
+            }
+        }
+
+        if (valueType == typeof(bool))
+            return value.ToString()!.ToLower();
+
+        return value.ToString() ?? "null";
     }
 
     public void Dispose()

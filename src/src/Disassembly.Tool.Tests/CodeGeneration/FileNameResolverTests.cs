@@ -28,7 +28,8 @@ public class FileNameResolverTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
         var nameCounters = new Dictionary<string, int>();
 
@@ -53,7 +54,8 @@ public class FileNameResolverTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
         var nameCounters = new Dictionary<string, int>
         {
@@ -80,7 +82,8 @@ public class FileNameResolverTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
         var nameCounters = new Dictionary<string, int>
         {
@@ -107,7 +110,8 @@ public class FileNameResolverTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
         var nameCounters = new Dictionary<string, int>();
 
@@ -131,7 +135,8 @@ public class FileNameResolverTests
             new List<string> { "T" },
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
         var nameCounters = new Dictionary<string, int>();
 
@@ -148,9 +153,9 @@ public class FileNameResolverTests
         // Arrange
         var types = new List<TypeMetadata>
         {
-            new TypeMetadata("Class1", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("Class2", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("Class1", "Namespace2", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null)
+            new TypeMetadata("Class1", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("Class2", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("Class1", "Namespace2", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>())
         };
 
         // Act
@@ -168,9 +173,9 @@ public class FileNameResolverTests
         // Arrange
         var types = new List<TypeMetadata>
         {
-            new TypeMetadata("TestClass", "TestNamespace", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("TestClass", "TestNamespace", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("TestClass", "TestNamespace", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null)
+            new TypeMetadata("TestClass", "TestNamespace", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("TestClass", "TestNamespace", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("TestClass", "TestNamespace", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>())
         };
 
         // Act

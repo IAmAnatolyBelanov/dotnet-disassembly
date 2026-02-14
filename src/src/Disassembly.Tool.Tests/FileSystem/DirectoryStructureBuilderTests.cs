@@ -71,7 +71,8 @@ public class DirectoryStructureBuilderTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         try
@@ -118,7 +119,8 @@ public class DirectoryStructureBuilderTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         try
@@ -162,7 +164,8 @@ public class DirectoryStructureBuilderTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         try
@@ -191,10 +194,10 @@ public class DirectoryStructureBuilderTests
         // Arrange
         var types = new List<TypeMetadata>
         {
-            new TypeMetadata("Class1", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("Class2", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("Class3", "Namespace2", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("Class4", null, TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null)
+            new TypeMetadata("Class1", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("Class2", "Namespace1", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("Class3", "Namespace2", TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("Class4", null, TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>())
         };
 
         // Act
@@ -231,8 +234,8 @@ public class DirectoryStructureBuilderTests
         // Arrange
         var types = new List<TypeMetadata>
         {
-            new TypeMetadata("Class1", null, TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null),
-            new TypeMetadata("Class2", null, TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null)
+            new TypeMetadata("Class1", null, TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>()),
+            new TypeMetadata("Class2", null, TypeKind.Class, false, new List<string>(), new List<MemberMetadata>(), new List<TypeMetadata>(), null, new List<AttributeMetadata>())
         };
 
         // Act

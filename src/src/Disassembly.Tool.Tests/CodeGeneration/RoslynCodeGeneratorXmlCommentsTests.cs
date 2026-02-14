@@ -38,7 +38,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            testType
+            testType,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -79,7 +80,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            enumType
+            enumType,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -119,7 +121,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             "string Substring(int startIndex)",
             typeof(string),
             new List<ParameterMetadata> { new("startIndex", "int", false, null) },
-            methodInfo
+            methodInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -159,7 +162,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             "int Length",
             typeof(int),
             new List<ParameterMetadata>(),
-            propertyInfo
+            propertyInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -215,7 +219,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             $"{enumType.Name}.{f.Name}",
             f.FieldType,
             new List<ParameterMetadata>(),
-            f
+            f,
+            new List<AttributeMetadata>()
         )).ToList();
 
         var typeMetadata = new TypeMetadata(
@@ -226,7 +231,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             new List<string>(),
             members,
             new List<TypeMetadata>(),
-            enumType
+            enumType,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -256,7 +262,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            typeof(object)
+            typeof(object),
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -302,7 +309,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
                 new("startIndex", "int", false, null),
                 new("length", "int", false, null)
             },
-            methodInfo
+            methodInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -344,7 +352,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             "object Clone()",
             typeof(object),
             new List<ParameterMetadata>(),
-            methodInfo
+            methodInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -387,7 +396,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             "object Clone()",
             typeof(object),
             new List<ParameterMetadata>(),
-            methodInfo
+            methodInfo,
+            new List<AttributeMetadata>()
         );
 
         // Act
@@ -425,7 +435,8 @@ public class RoslynCodeGeneratorXmlCommentsTests
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            testType
+            testType,
+            new List<AttributeMetadata>()
         );
 
         // Act

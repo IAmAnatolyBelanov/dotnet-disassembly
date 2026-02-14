@@ -168,6 +168,7 @@ NugetDisassembly/
 - ✅ Базовые классы и интерфейсы
 - ✅ Модификаторы: `static`, `abstract`, `virtual`, `sealed`
 - ✅ Extension методы (определяются через ExtensionAttribute, генерируются с ключевым словом `this` для первого параметра)
+- ✅ Атрибуты (извлекаются из типов и членов, генерируются с полными именами и аргументами)
 - ✅ XML комментарии (если доступны в .xml файлах документации)
 
 ## Формат генерируемого кода
@@ -177,10 +178,12 @@ NugetDisassembly/
 ```csharp
 namespace Newtonsoft.Json
 {
+    [System.SerializableAttribute]
     public abstract class JsonConverter
     {
         // Implementation in original library
         
+        [System.ObsoleteAttribute("This method is obsolete")]
         public abstract void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer);
         
         public abstract object? ReadJson(JsonReader reader, Type objectType, object? existingValue, JsonSerializer serializer);
@@ -277,6 +280,33 @@ namespace System.Linq
 - Остальные параметры extension метода обрабатываются как обычные параметры
 - Обычные статические методы (без ExtensionAttribute) не получают модификатор `this`
 
+### Пример с атрибутами
+
+Атрибуты извлекаются из типов и членов и генерируются в сгенерированном коде с полными именами (включая namespace):
+
+```csharp
+namespace System.ComponentModel
+{
+    [System.AttributeUsageAttribute(System.AttributeTargets.All, AllowMultiple = true)]
+    public class DescriptionAttribute : Attribute
+    {
+        // Implementation in original library
+        
+        public DescriptionAttribute(string description);
+        
+        public string Description { get; }
+    }
+}
+```
+
+**Особенности обработки атрибутов:**
+- Атрибуты извлекаются из типов, методов, свойств, полей, событий и конструкторов
+- Используются полные имена атрибутов с namespace (например, `System.SerializableAttribute`)
+- Поддерживаются позиционные аргументы (конструкторные параметры)
+- Поддерживаются именованные аргументы (свойства и поля атрибутов)
+- Классы-атрибуты извлекаются как обычные классы (они просто классы, наследующиеся от `Attribute`)
+- Компилятор-генерированные атрибуты и служебные атрибуты (NullableAttribute, NullableContextAttribute) исключаются
+
 ## Обработка ошибок
 
 Инструмент обрабатывает ошибки следующим образом:
@@ -298,7 +328,6 @@ namespace System.Linq
 
 - ❌ Реализация методов (только сигнатуры)
 - ❌ Private и internal члены
-- ❌ Атрибуты (пока не реализовано)
 
 ### Требования к NuGet кэшу
 

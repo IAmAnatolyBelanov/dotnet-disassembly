@@ -64,7 +64,8 @@ public class AssemblyReflectorTests : IDisposable
             new List<string>(),
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         // Assert
@@ -89,7 +90,8 @@ public class AssemblyReflectorTests : IDisposable
             new List<string> { "T", "U" },
             new List<MemberMetadata>(),
             new List<TypeMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         // Assert
@@ -109,7 +111,8 @@ public class AssemblyReflectorTests : IDisposable
             "void TestMethod()",
             typeof(void),
             new List<ParameterMetadata>(),
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         // Assert
@@ -135,7 +138,8 @@ public class AssemblyReflectorTests : IDisposable
             "void TestMethod(string param1, int param2)",
             typeof(void),
             parameters,
-            null
+            null,
+            new List<AttributeMetadata>()
         );
 
         // Assert
