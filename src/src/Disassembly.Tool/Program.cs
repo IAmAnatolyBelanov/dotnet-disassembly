@@ -105,16 +105,63 @@ class Program
             var directoryBuilder = new DirectoryStructureBuilder();
             var packageRoot = directoryBuilder.CreatePackageDirectory(outputRoot, package);
 
+            // Загружаем XML документацию, если доступна
+            var xmlReader = new XmlDocumentationReader();
+            if (!string.IsNullOrWhiteSpace(package.XmlDocPath))
+            {
+                xmlReader.LoadXmlDocumentation(package.XmlDocPath);
+                Console.WriteLine($"  Loaded XML documentation from {Path.GetFileName(package.XmlDocPath)}");
+            }
+
             // Читаем метаданные сборки
             var reflector = new AssemblyReflector();
             var types = reflector.ReadAssembly(package.DllPath);
             Console.WriteLine($"  Found {types.Count} public/protected type(s)");
 
+            // Собираем XML комментарии для типов и членов
+            var typeComments = new Dictionary<string, TypeComments>();
+            var memberComments = new Dictionary<string, MemberComments>();
+
+            foreach (var type in types)
+            {
+                if (type.OriginalType != null)
+                {
+                    var typeXmlId = XmlDocumentationReader.GenerateTypeXmlId(type.OriginalType);
+                    var comments = xmlReader.GetTypeComments(typeXmlId);
+                    if (comments != null)
+                    {
+                        typeComments[typeXmlId] = comments;
+                    }
+
+                    // Собираем комментарии для членов
+                    foreach (var member in type.Members)
+                    {
+                        if (member.OriginalMember != null)
+                        {
+                            var memberXmlId = XmlDocumentationReader.GenerateMemberXmlId(member.OriginalMember);
+                            var memberComment = xmlReader.GetMemberComments(memberXmlId);
+                            if (memberComment != null)
+                            {
+                                memberComments[memberXmlId] = memberComment;
+                            }
+                        }
+                    }
+
+                    // Собираем комментарии для вложенных типов
+                    CollectCommentsForNestedTypes(type, xmlReader, typeComments, memberComments);
+                }
+            }
+
+            if (typeComments.Count > 0 || memberComments.Count > 0)
+            {
+                Console.WriteLine($"  Found {typeComments.Count} type comment(s) and {memberComments.Count} member comment(s)");
+            }
+
             // Организуем по namespace
             var organized = directoryBuilder.OrganizeByNamespace(types);
 
-            // Генерируем код
-            var codeGenerator = new RoslynCodeGenerator();
+            // Генерируем код с XML комментариями
+            var codeGenerator = new RoslynCodeGenerator(typeComments, memberComments);
             var fileNameResolver = new FileNameResolver();
             var nameCounters = fileNameResolver.InitializeNameCounters(types);
 
@@ -145,6 +192,43 @@ class Program
         catch (Exception ex)
         {
             Console.WriteLine($"  Error processing package {package.Name}: {ex.Message}");
+        }
+    }
+
+    static void CollectCommentsForNestedTypes(
+        TypeMetadata type,
+        XmlDocumentationReader xmlReader,
+        Dictionary<string, TypeComments> typeComments,
+        Dictionary<string, MemberComments> memberComments)
+    {
+        foreach (var nestedType in type.NestedTypes)
+        {
+            if (nestedType.OriginalType != null)
+            {
+                var typeXmlId = XmlDocumentationReader.GenerateTypeXmlId(nestedType.OriginalType);
+                var comments = xmlReader.GetTypeComments(typeXmlId);
+                if (comments != null)
+                {
+                    typeComments[typeXmlId] = comments;
+                }
+
+                // Собираем комментарии для членов вложенного типа
+                foreach (var member in nestedType.Members)
+                {
+                    if (member.OriginalMember != null)
+                    {
+                        var memberXmlId = XmlDocumentationReader.GenerateMemberXmlId(member.OriginalMember);
+                        var memberComment = xmlReader.GetMemberComments(memberXmlId);
+                        if (memberComment != null)
+                        {
+                            memberComments[memberXmlId] = memberComment;
+                        }
+                    }
+                }
+
+                // Рекурсивно обрабатываем вложенные типы
+                CollectCommentsForNestedTypes(nestedType, xmlReader, typeComments, memberComments);
+            }
         }
     }
 }

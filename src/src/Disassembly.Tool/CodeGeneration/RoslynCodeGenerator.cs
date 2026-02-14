@@ -11,6 +11,17 @@ namespace Disassembly.Tool.CodeGeneration;
 /// </summary>
 public class RoslynCodeGenerator
 {
+    private readonly Dictionary<string, TypeComments>? _typeComments;
+    private readonly Dictionary<string, MemberComments>? _memberComments;
+
+    public RoslynCodeGenerator(
+        Dictionary<string, TypeComments>? typeComments = null,
+        Dictionary<string, MemberComments>? memberComments = null)
+    {
+        _typeComments = typeComments;
+        _memberComments = memberComments;
+    }
+
     /// <summary>
     /// Генерирует объявление типа
     /// </summary>
@@ -113,6 +124,16 @@ public class RoslynCodeGenerator
 
         declaration = declaration.WithMembers(SyntaxFactory.List(members));
 
+        // Добавляем XML комментарии
+        if (typeMetadata.OriginalType != null)
+        {
+            var xmlId = XmlDocumentationReader.GenerateTypeXmlId(typeMetadata.OriginalType);
+            if (_typeComments != null && _typeComments.TryGetValue(xmlId, out var typeComments))
+            {
+                declaration = declaration.WithLeadingTrivia(GenerateXmlCommentTrivia(typeComments));
+            }
+        }
+
         return declaration;
     }
 
@@ -190,7 +211,7 @@ public class RoslynCodeGenerator
     /// </summary>
     public MemberDeclarationSyntax? GenerateMember(MemberMetadata memberMetadata)
     {
-        return memberMetadata.Type switch
+        MemberDeclarationSyntax? result = memberMetadata.Type switch
         {
             MemberType.Method => GenerateMethod(memberMetadata),
             MemberType.Property => GenerateProperty(memberMetadata),
@@ -199,6 +220,18 @@ public class RoslynCodeGenerator
             MemberType.Constructor => GenerateConstructor(memberMetadata),
             _ => null
         };
+
+        // Добавляем XML комментарии
+        if (result != null && memberMetadata.OriginalMember != null)
+        {
+            var xmlId = XmlDocumentationReader.GenerateMemberXmlId(memberMetadata.OriginalMember);
+            if (_memberComments != null && _memberComments.TryGetValue(xmlId, out var memberComments))
+            {
+                result = result.WithLeadingTrivia(GenerateXmlCommentTrivia(memberComments, memberMetadata));
+            }
+        }
+
+        return result;
     }
 
     private MethodDeclarationSyntax GenerateMethod(MemberMetadata memberMetadata)
@@ -607,6 +640,135 @@ public class RoslynCodeGenerator
             .WithMembers(SyntaxFactory.SingletonList<MemberDeclarationSyntax>(namespaceDeclaration));
 
         return compilationUnit;
+    }
+
+    /// <summary>
+    /// Генерирует XML комментарии для типа
+    /// </summary>
+    private SyntaxTriviaList GenerateXmlCommentTrivia(TypeComments comments)
+    {
+        var xmlBuilder = new System.Text.StringBuilder();
+        xmlBuilder.AppendLine("/// <summary>");
+        
+        if (!string.IsNullOrWhiteSpace(comments.Summary))
+        {
+            foreach (var line in comments.Summary.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+            {
+                xmlBuilder.AppendLine($"/// {line}");
+            }
+        }
+        
+        xmlBuilder.AppendLine("/// </summary>");
+
+        if (!string.IsNullOrWhiteSpace(comments.Remarks))
+        {
+            xmlBuilder.AppendLine("/// <remarks>");
+            foreach (var line in comments.Remarks.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+            {
+                xmlBuilder.AppendLine($"/// {line}");
+            }
+            xmlBuilder.AppendLine("/// </remarks>");
+        }
+
+        foreach (var example in comments.Examples)
+        {
+            if (!string.IsNullOrWhiteSpace(example))
+            {
+                xmlBuilder.AppendLine("/// <example>");
+                foreach (var line in example.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+                {
+                    xmlBuilder.AppendLine($"/// {line}");
+                }
+                xmlBuilder.AppendLine("/// </example>");
+            }
+        }
+
+        // Парсим XML комментарии из строки
+        var xmlText = xmlBuilder.ToString();
+        var trivia = SyntaxFactory.ParseLeadingTrivia(xmlText);
+        return trivia;
+    }
+
+    /// <summary>
+    /// Генерирует XML комментарии для члена
+    /// </summary>
+    private SyntaxTriviaList GenerateXmlCommentTrivia(MemberComments comments, MemberMetadata memberMetadata)
+    {
+        var xmlBuilder = new System.Text.StringBuilder();
+        xmlBuilder.AppendLine("/// <summary>");
+        
+        if (!string.IsNullOrWhiteSpace(comments.Summary))
+        {
+            foreach (var line in comments.Summary.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+            {
+                xmlBuilder.AppendLine($"/// {line}");
+            }
+        }
+        
+        xmlBuilder.AppendLine("/// </summary>");
+
+        // Добавляем param комментарии
+        foreach (var param in memberMetadata.Parameters)
+        {
+            if (comments.Parameters.TryGetValue(param.Name, out var paramComment))
+            {
+                xmlBuilder.AppendLine($"/// <param name=\"{param.Name}\">");
+                foreach (var line in paramComment.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+                {
+                    xmlBuilder.AppendLine($"/// {line}");
+                }
+                xmlBuilder.AppendLine("/// </param>");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(comments.Returns))
+        {
+            xmlBuilder.AppendLine("/// <returns>");
+            foreach (var line in comments.Returns.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+            {
+                xmlBuilder.AppendLine($"/// {line}");
+            }
+            xmlBuilder.AppendLine("/// </returns>");
+        }
+
+        // Добавляем exception комментарии
+        foreach (var exception in comments.Exceptions)
+        {
+            xmlBuilder.AppendLine($"/// <exception cref=\"{exception.Key}\">");
+            foreach (var line in exception.Value.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+            {
+                xmlBuilder.AppendLine($"/// {line}");
+            }
+            xmlBuilder.AppendLine("/// </exception>");
+        }
+
+        if (!string.IsNullOrWhiteSpace(comments.Remarks))
+        {
+            xmlBuilder.AppendLine("/// <remarks>");
+            foreach (var line in comments.Remarks.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+            {
+                xmlBuilder.AppendLine($"/// {line}");
+            }
+            xmlBuilder.AppendLine("/// </remarks>");
+        }
+
+        foreach (var example in comments.Examples)
+        {
+            if (!string.IsNullOrWhiteSpace(example))
+            {
+                xmlBuilder.AppendLine("/// <example>");
+                foreach (var line in example.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+                {
+                    xmlBuilder.AppendLine($"/// {line}");
+                }
+                xmlBuilder.AppendLine("/// </example>");
+            }
+        }
+
+        // Парсим XML комментарии из строки
+        var xmlText = xmlBuilder.ToString();
+        var trivia = SyntaxFactory.ParseLeadingTrivia(xmlText);
+        return trivia;
     }
 }
 
