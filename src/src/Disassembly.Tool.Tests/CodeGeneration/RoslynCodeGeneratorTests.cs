@@ -329,5 +329,45 @@ public class RoslynCodeGeneratorTests
         public event EventHandler? TestEvent;
 #pragma warning restore CS0067
     }
+
+    [Fact]
+    public void GenerateMember_WithNullableReferenceTypes_MarksTypesWithQuestionMark()
+    {
+        // Arrange - создаем метаданные метода с nullable reference type параметром
+        // В реальной реализации TypeName в ParameterMetadata будет содержать "string?" 
+        // для nullable reference types (определяется через NullableAttribute в рефлексии)
+        var methodInfo = typeof(string).GetMethod("ToString", Type.EmptyTypes)!;
+        var methodMetadata = new MemberMetadata(
+            "MethodWithNullableParameter",
+            MemberType.Method,
+            "void MethodWithNullableParameter(string? param)",
+            typeof(void),
+            new List<ParameterMetadata>
+            {
+                // TypeName содержит "string?" для nullable reference type
+                new ParameterMetadata("param", "string?", false, null)
+            },
+            methodInfo
+        );
+
+        // Act
+        var methodResult = _generator.GenerateMember(methodMetadata);
+
+        // Assert - проверяем, что nullable reference types помечены явно через `?`
+        Assert.NotNull(methodResult);
+        var methodSyntax = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>(methodResult);
+        var methodCode = methodSyntax.ToFullString();
+        
+        // Проверяем, что параметр помечен как nullable
+        // RoslynCodeGenerator использует SyntaxFactory.ParseTypeName(p.TypeName),
+        // который должен корректно обработать "string?" и сгенерировать код с `?`
+        Assert.Contains("string?", methodCode);
+        
+        // Также проверяем, что это именно параметр метода, а не что-то другое
+        var parameters = methodSyntax.ParameterList.Parameters;
+        Assert.Single(parameters);
+        var paramType = parameters[0].Type?.ToString();
+        Assert.Equal("string?", paramType);
+    }
 }
 

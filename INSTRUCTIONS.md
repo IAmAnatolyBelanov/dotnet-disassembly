@@ -273,7 +273,7 @@ namespace System.Collections.Generic
 - ❌ Private и internal члены
 - ❌ Атрибуты (пока не реализовано)
 - ❌ Partial классы обрабатываются как обычные классы
-- ❌ Nullable reference types не помечаются явно
+- ⚠️ Nullable reference types: генератор поддерживает явную пометку через `?`, но автоматическое определение nullable из метаданных сборок через рефлексию еще не реализовано
 
 ### Требования к NuGet кэшу
 
