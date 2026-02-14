@@ -288,7 +288,7 @@ public class RoslynCodeGenerator
 
         var method = SyntaxFactory.MethodDeclaration(returnType, memberMetadata.Name)
             .WithModifiers(GetMemberModifiers(methodInfo))
-            .WithParameterList(GenerateParameterList(memberMetadata.Parameters))
+            .WithParameterList(GenerateParameterList(memberMetadata.Parameters, methodInfo))
             .WithBody(GenerateMethodBody());
 
         if (methodInfo.IsGenericMethodDefinition)
@@ -424,12 +424,34 @@ public class RoslynCodeGenerator
             ));
     }
 
-    private ParameterListSyntax GenerateParameterList(List<ParameterMetadata> parameters)
+    /// <summary>
+    /// Определяет, является ли метод extension методом
+    /// </summary>
+    private bool IsExtensionMethod(System.Reflection.MethodInfo method)
     {
-        var paramList = parameters.Select(p =>
+        // Extension методы должны быть статическими
+        if (!method.IsStatic)
+            return false;
+
+        // Проверяем наличие ExtensionAttribute
+        var extensionAttributeType = typeof(System.Runtime.CompilerServices.ExtensionAttribute);
+        return method.IsDefined(extensionAttributeType, false);
+    }
+
+    private ParameterListSyntax GenerateParameterList(List<ParameterMetadata> parameters, System.Reflection.MethodInfo? methodInfo = null)
+    {
+        var isExtensionMethod = methodInfo != null && IsExtensionMethod(methodInfo);
+        
+        var paramList = parameters.Select((p, index) =>
         {
             var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier(p.Name))
                 .WithType(SyntaxFactory.ParseTypeName(p.TypeName));
+
+            // Добавляем this для первого параметра extension методов
+            if (isExtensionMethod && index == 0)
+            {
+                param = param.WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.ThisKeyword)));
+            }
 
             if (p.IsOptional)
             {
