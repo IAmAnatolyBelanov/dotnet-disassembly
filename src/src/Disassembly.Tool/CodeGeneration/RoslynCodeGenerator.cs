@@ -21,10 +21,33 @@ public class RoslynCodeGenerator
 
         if (typeMetadata.Kind == Core.TypeKind.Enum)
         {
-            // Для enum пока просто возвращаем базовое объявление
-            // Вложенные типы в enum не поддерживаются стандартным способом
             var enumDecl = SyntaxFactory.EnumDeclaration(name)
                 .WithModifiers(modifiers);
+            
+            // Добавляем базовый тип enum (например, : int, : byte)
+            if (typeMetadata.OriginalType != null && typeMetadata.OriginalType.IsEnum)
+            {
+                var underlyingType = Enum.GetUnderlyingType(typeMetadata.OriginalType);
+                if (underlyingType != typeof(int)) // int - это тип по умолчанию
+                {
+                    var baseTypeSyntax = SyntaxFactory.SimpleBaseType(
+                        SyntaxFactory.ParseTypeName(GetTypeDisplayName(underlyingType))
+                    );
+                    enumDecl = enumDecl.WithBaseList(
+                        SyntaxFactory.BaseList(SyntaxFactory.SingletonSeparatedList<BaseTypeSyntax>(baseTypeSyntax))
+                    );
+                }
+            }
+            
+            // Генерируем enum members из полей
+            var enumMembers = GenerateEnumMembers(typeMetadata);
+            if (enumMembers.Count > 0)
+            {
+                enumDecl = enumDecl.WithMembers(SyntaxFactory.SeparatedList(enumMembers));
+            }
+            
+            // Примечание: вложенные типы в enum не поддерживаются стандартным способом в C#
+            // Если они есть в метаданных, они будут обработаны как отдельные типы верхнего уровня
             
             return enumDecl;
         }
@@ -60,11 +83,20 @@ public class RoslynCodeGenerator
             }
         }
 
-        // Добавляем члены
+        // Добавляем члены (для enum поля-значения обрабатываются отдельно)
         var members = new List<MemberDeclarationSyntax>();
 
         foreach (var member in typeMetadata.Members)
         {
+            // Пропускаем поля enum, которые являются значениями enum
+            if (typeMetadata.Kind == Core.TypeKind.Enum && 
+                member.Type == MemberType.Field && 
+                member.OriginalMember is System.Reflection.FieldInfo fieldInfo &&
+                fieldInfo.IsStatic && fieldInfo.IsPublic && fieldInfo.Name != "value__")
+            {
+                continue; // Эти поля обрабатываются в GenerateEnumMembers
+            }
+            
             var memberSyntax = GenerateMember(member);
             if (memberSyntax != null)
             {
@@ -82,6 +114,75 @@ public class RoslynCodeGenerator
         declaration = declaration.WithMembers(SyntaxFactory.List(members));
 
         return declaration;
+    }
+
+    /// <summary>
+    /// Генерирует enum members из метаданных
+    /// </summary>
+    private List<EnumMemberDeclarationSyntax> GenerateEnumMembers(TypeMetadata typeMetadata)
+    {
+        var enumMembers = new List<EnumMemberDeclarationSyntax>();
+        
+        if (typeMetadata.OriginalType == null || !typeMetadata.OriginalType.IsEnum)
+            return enumMembers;
+        
+        // Получаем все статические публичные поля, которые являются значениями enum
+        var enumFields = typeMetadata.Members
+            .Where(m => m.Type == MemberType.Field && m.OriginalMember is System.Reflection.FieldInfo fieldInfo)
+            .Select(m => m.OriginalMember as System.Reflection.FieldInfo)
+            .Where(f => f != null && f.IsStatic && f.IsPublic && f.Name != "value__")
+            .OrderBy(f => 
+            {
+                var value = f!.GetRawConstantValue();
+                if (value == null) return 0;
+                try
+                {
+                    return Convert.ToInt64(value);
+                }
+                catch
+                {
+                    return 0;
+                }
+            })
+            .ToList();
+        
+        foreach (var field in enumFields)
+        {
+            if (field == null) continue;
+            
+            var enumMember = SyntaxFactory.EnumMemberDeclaration(SyntaxFactory.Identifier(field.Name));
+            
+            // Получаем значение enum member
+            var value = field.GetRawConstantValue();
+            if (value != null)
+            {
+                var underlyingType = Enum.GetUnderlyingType(typeMetadata.OriginalType);
+                var numericValue = Convert.ChangeType(value, underlyingType);
+                
+                // Всегда указываем явные значения для всех enum members
+                // Генерируем выражение для значения
+                ExpressionSyntax valueExpression = numericValue switch
+                {
+                    int intVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(intVal)),
+                    byte byteVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(byteVal)),
+                    sbyte sbyteVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(sbyteVal)),
+                    short shortVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(shortVal)),
+                    ushort ushortVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(ushortVal)),
+                    uint uintVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(uintVal)),
+                    long longVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(longVal)),
+                    ulong ulongVal => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(ulongVal)),
+                    _ => SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(Convert.ToInt64(numericValue)))
+                };
+                
+                enumMember = enumMember.WithEqualsValue(
+                    SyntaxFactory.EqualsValueClause(valueExpression)
+                );
+            }
+            
+            enumMembers.Add(enumMember);
+        }
+        
+        return enumMembers;
     }
 
     /// <summary>
@@ -187,6 +288,13 @@ public class RoslynCodeGenerator
     {
         if (memberMetadata.OriginalMember is not System.Reflection.FieldInfo fieldInfo)
             throw new InvalidOperationException("Field metadata must have OriginalMember");
+
+        // Пропускаем поля enum, которые являются значениями enum (они обрабатываются отдельно)
+        if (fieldInfo.DeclaringType != null && fieldInfo.DeclaringType.IsEnum && 
+            fieldInfo.IsStatic && fieldInfo.IsPublic && fieldInfo.Name != "value__")
+        {
+            throw new InvalidOperationException("Enum fields should be handled by GenerateEnumMembers");
+        }
 
         var type = SyntaxFactory.ParseTypeName(GetTypeDisplayName(fieldInfo.FieldType));
         var variable = SyntaxFactory.VariableDeclarator(fieldInfo.Name);
