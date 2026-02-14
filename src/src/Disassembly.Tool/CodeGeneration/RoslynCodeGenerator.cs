@@ -79,12 +79,16 @@ public class RoslynCodeGenerator
             return enumDecl;
         }
 
+        if (typeMetadata.Kind == Core.TypeKind.Delegate)
+        {
+            return GenerateDelegate(typeMetadata);
+        }
+
         TypeDeclarationSyntax declaration = typeMetadata.Kind switch
         {
             Core.TypeKind.Class => SyntaxFactory.ClassDeclaration(name),
             Core.TypeKind.Interface => SyntaxFactory.InterfaceDeclaration(name),
             Core.TypeKind.Struct => SyntaxFactory.StructDeclaration(name),
-            Core.TypeKind.Delegate => throw new NotSupportedException("Delegates are handled separately"),
             _ => SyntaxFactory.ClassDeclaration(name)
         };
 
@@ -249,6 +253,95 @@ public class RoslynCodeGenerator
         }
         
         return enumMembers;
+    }
+
+    /// <summary>
+    /// Генерирует объявление делегата
+    /// </summary>
+    private MemberDeclarationSyntax GenerateDelegate(TypeMetadata typeMetadata)
+    {
+        if (typeMetadata.OriginalType == null)
+            throw new InvalidOperationException("Delegate metadata must have OriginalType");
+
+        var modifiers = GetTypeModifiers(typeMetadata);
+        var name = typeMetadata.Name;
+
+        // Получаем метод Invoke из делегата для извлечения сигнатуры
+        var invokeMethod = typeMetadata.OriginalType.GetMethod("Invoke");
+        if (invokeMethod == null)
+            throw new InvalidOperationException($"Delegate {name} does not have Invoke method");
+
+        // Определяем возвращаемый тип
+        string returnTypeName;
+        if (invokeMethod.ReturnType != typeof(void))
+        {
+            var isNullable = NullableReferenceTypeHelper.IsReturnTypeNullable(invokeMethod);
+            returnTypeName = GetTypeDisplayName(invokeMethod.ReturnType, isNullable: isNullable);
+        }
+        else
+        {
+            returnTypeName = "void";
+        }
+
+        var returnType = SyntaxFactory.ParseTypeName(returnTypeName);
+
+        // Генерируем параметры из метода Invoke
+        var parameters = invokeMethod.GetParameters()
+            .Select(p =>
+            {
+                var isNullable = NullableReferenceTypeHelper.IsParameterNullable(p);
+                var paramType = SyntaxFactory.ParseTypeName(GetTypeDisplayName(p.ParameterType, isNullable: isNullable));
+                var param = SyntaxFactory.Parameter(SyntaxFactory.Identifier(p.Name ?? "param"))
+                    .WithType(paramType);
+
+                if (p.IsOptional)
+                {
+                    param = param.WithDefault(SyntaxFactory.EqualsValueClause(
+                        SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)
+                    ));
+                }
+
+                return param;
+            })
+            .ToArray();
+
+        var parameterList = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters));
+
+        // Создаем объявление делегата
+        var delegateDecl = SyntaxFactory.DelegateDeclaration(returnType, name)
+            .WithModifiers(modifiers)
+            .WithParameterList(parameterList);
+
+        // Добавляем generic параметры, если есть
+        if (typeMetadata.IsGeneric && typeMetadata.GenericParameters.Count > 0)
+        {
+            var typeParams = typeMetadata.GenericParameters
+                .Select(p => SyntaxFactory.TypeParameter(SyntaxFactory.Identifier(p)))
+                .ToArray();
+            delegateDecl = delegateDecl.WithTypeParameterList(
+                SyntaxFactory.TypeParameterList(
+                    SyntaxFactory.SeparatedList(typeParams)
+                )
+            );
+        }
+
+        // Добавляем атрибуты
+        if (typeMetadata.Attributes.Count > 0)
+        {
+            delegateDecl = delegateDecl.WithAttributeLists(GenerateAttributeLists(typeMetadata.Attributes));
+        }
+
+        // Добавляем XML комментарии
+        if (typeMetadata.OriginalType != null)
+        {
+            var xmlId = XmlDocumentationReader.GenerateTypeXmlId(typeMetadata.OriginalType);
+            if (_typeComments != null && _typeComments.TryGetValue(xmlId, out var typeComments))
+            {
+                delegateDecl = delegateDecl.WithLeadingTrivia(GenerateXmlCommentTrivia(typeComments));
+            }
+        }
+
+        return delegateDecl;
     }
 
     /// <summary>

@@ -117,6 +117,362 @@ public class RoslynCodeGeneratorTests
     }
 
     [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_ReturnsDelegateDeclaration()
+    {
+        // Arrange - используем стандартный делегат Action
+        var typeMetadata = new TypeMetadata(
+            "TestDelegate",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Action),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.Equal("TestDelegate", delegateDecl.Identifier.ValueText);
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithParameters_GeneratesCorrectParameters()
+    {
+        // Arrange - используем Action<string> для делегата с параметром
+        var typeMetadata = new TypeMetadata(
+            "StringAction",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Action<string>),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotNull(delegateDecl.ParameterList);
+        Assert.Single(delegateDecl.ParameterList.Parameters);
+        
+        var parameter = delegateDecl.ParameterList.Parameters[0];
+        Assert.NotNull(parameter.Type);
+        // Проверяем, что тип параметра содержит "string"
+        var paramTypeName = parameter.Type?.ToString();
+        Assert.Contains("string", paramTypeName ?? "");
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithReturnType_GeneratesCorrectReturnType()
+    {
+        // Arrange - используем Func<int> для делегата с возвращаемым значением
+        var typeMetadata = new TypeMetadata(
+            "IntFunc",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Func<int>),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotNull(delegateDecl.ReturnType);
+        var returnTypeName = delegateDecl.ReturnType.ToString();
+        Assert.Contains("int", returnTypeName);
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithMultipleParameters_GeneratesAllParameters()
+    {
+        // Arrange - используем Func<string, int, bool> для делегата с несколькими параметрами
+        var typeMetadata = new TypeMetadata(
+            "MultiParamFunc",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Func<string, int, bool>),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotNull(delegateDecl.ParameterList);
+        Assert.Equal(2, delegateDecl.ParameterList.Parameters.Count);
+        
+        // Проверяем типы параметров
+        var firstParam = delegateDecl.ParameterList.Parameters[0];
+        var secondParam = delegateDecl.ParameterList.Parameters[1];
+        Assert.NotNull(firstParam.Type);
+        Assert.NotNull(secondParam.Type);
+        Assert.Contains("string", firstParam.Type?.ToString() ?? "");
+        Assert.Contains("int", secondParam.Type?.ToString() ?? "");
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithGenericDelegate_IncludesTypeParameters()
+    {
+        // Arrange - используем стандартный generic делегат
+        // Создаем метаданные для generic делегата (например, Func<T>)
+        var funcType = typeof(Func<>);
+        var typeMetadata = new TypeMetadata(
+            "GenericFunc",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            true,
+            new List<string> { "T" },
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            funcType,
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotNull(delegateDecl.TypeParameterList);
+        Assert.Single(delegateDecl.TypeParameterList.Parameters);
+        Assert.Equal("T", delegateDecl.TypeParameterList.Parameters[0].Identifier.ValueText);
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithAttributes_IncludesAttributes()
+    {
+        // Arrange
+        var attributes = new List<AttributeMetadata>
+        {
+            new AttributeMetadata(
+                "System.ObsoleteAttribute",
+                new List<AttributeArgumentMetadata>
+                {
+                    new AttributeArgumentMetadata(null, "\"This delegate is obsolete\"")
+                }
+            )
+        };
+
+        var typeMetadata = new TypeMetadata(
+            "ObsoleteDelegate",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Action),
+            attributes
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotEmpty(delegateDecl.AttributeLists);
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithoutOriginalType_ThrowsException()
+    {
+        // Arrange
+        var typeMetadata = new TypeMetadata(
+            "TestDelegate",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            null, // OriginalType is null
+            new List<AttributeMetadata>()
+        );
+
+        // Act & Assert
+        var exception = Assert.Throws<InvalidOperationException>(() => 
+            _generator.GenerateTypeDeclaration(typeMetadata));
+        Assert.Contains("Delegate metadata must have OriginalType", exception.Message);
+    }
+
+    [Fact]
+    public void GenerateFile_WithDelegate_GeneratesCompleteFile()
+    {
+        // Arrange
+        var typeMetadata = new TypeMetadata(
+            "TestDelegate",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Action),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateFile(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax>(result);
+        Assert.Single(result.Members);
+        
+        var namespaceDecl = result.Members.OfType<Microsoft.CodeAnalysis.CSharp.Syntax.NamespaceDeclarationSyntax>().First();
+        Assert.Equal("TestNamespace", namespaceDecl.Name.ToString());
+        Assert.Single(namespaceDecl.Members);
+        Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(namespaceDecl.Members[0]);
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithVoidReturn_GeneratesVoid()
+    {
+        // Arrange - Action делегат возвращает void
+        var typeMetadata = new TypeMetadata(
+            "VoidAction",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Action),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotNull(delegateDecl.ReturnType);
+        var returnTypeName = delegateDecl.ReturnType.ToString();
+        Assert.Equal("void", returnTypeName.Trim());
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithComplexGenericType_GeneratesCorrectly()
+    {
+        // Arrange - используем Func<string, List<int>, bool> для сложного generic типа
+        var typeMetadata = new TypeMetadata(
+            "ComplexFunc",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Func<string, List<int>, bool>),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotNull(delegateDecl.ParameterList);
+        Assert.Equal(2, delegateDecl.ParameterList.Parameters.Count);
+        
+        // Проверяем, что сложные generic типы генерируются корректно
+        var secondParam = delegateDecl.ParameterList.Parameters[1];
+        Assert.NotNull(secondParam.Type);
+        var paramTypeName = secondParam.Type?.ToString();
+        // Должен содержать List и int
+        Assert.NotNull(paramTypeName);
+        Assert.Contains("List", paramTypeName);
+        Assert.Contains("int", paramTypeName);
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithGenericDelegate_WithMultipleTypeParameters_GeneratesAllTypeParameters()
+    {
+        // Arrange - создаем метаданные для generic делегата с несколькими generic параметрами
+        // Используем реальный тип Func<TResult> как основу, но создаем метаданные для Func<T, U, TResult>
+        var funcType = typeof(Func<,,>); // Func с 3 generic параметрами
+        var typeMetadata = new TypeMetadata(
+            "MultiGenericFunc",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            true,
+            new List<string> { "T", "U", "TResult" },
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            funcType,
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.NotNull(delegateDecl.TypeParameterList);
+        Assert.Equal(3, delegateDecl.TypeParameterList.Parameters.Count);
+        
+        var typeParams = delegateDecl.TypeParameterList.Parameters;
+        Assert.Equal("T", typeParams[0].Identifier.ValueText);
+        Assert.Equal("U", typeParams[1].Identifier.ValueText);
+        Assert.Equal("TResult", typeParams[2].Identifier.ValueText);
+    }
+
+    [Fact]
+    public void GenerateTypeDeclaration_WithDelegate_WithPublicModifier_GeneratesPublic()
+    {
+        // Arrange - Action является публичным делегатом
+        var typeMetadata = new TypeMetadata(
+            "PublicDelegate",
+            "TestNamespace",
+            CoreTypeKind.Delegate,
+            false,
+            new List<string>(),
+            new List<MemberMetadata>(),
+            new List<TypeMetadata>(),
+            typeof(Action),
+            new List<AttributeMetadata>()
+        );
+
+        // Act
+        var result = _generator.GenerateTypeDeclaration(typeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        var delegateDecl = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.DelegateDeclarationSyntax>(result);
+        Assert.Contains(delegateDecl.Modifiers, m => m.IsKind(SyntaxKind.PublicKeyword));
+    }
+
+    [Fact]
     public void GenerateTypeDeclaration_WithGenericType_IncludesTypeParameters()
     {
         // Arrange
@@ -451,12 +807,11 @@ public class RoslynCodeGeneratorTests
         
         // Первый параметр должен иметь `this`
         var firstParam = parameters[0];
-        Assert.True(firstParam.Modifiers.Any(m => m.IsKind(SyntaxKind.ThisKeyword)));
+        Assert.Contains(firstParam.Modifiers, m => m.IsKind(SyntaxKind.ThisKeyword));
         
         // Второй параметр не должен иметь `this`
         var secondParam = parameters[1];
-        Assert.False(secondParam.Modifiers.Any(m => m.IsKind(SyntaxKind.ThisKeyword)),
-            "Second parameter should not have 'this' modifier");
+        Assert.DoesNotContain(secondParam.Modifiers, m => m.IsKind(SyntaxKind.ThisKeyword));
         
         // Проверяем, что первый параметр имеет `this`, а второй - нет
         var firstParamCode = parameters[0].ToFullString();
@@ -533,12 +888,12 @@ public class RoslynCodeGeneratorTests
         var methodSyntax = Assert.IsType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>(result);
         
         // Метод должен быть статическим
-        Assert.True(methodSyntax.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)));
+        Assert.Contains(methodSyntax.Modifiers, m => m.IsKind(SyntaxKind.StaticKeyword));
         
         // Первый параметр должен иметь `this`
         var parameters = methodSyntax.ParameterList.Parameters;
         Assert.Single(parameters);
-        Assert.True(parameters[0].Modifiers.Any(m => m.IsKind(SyntaxKind.ThisKeyword)));
+        Assert.Contains(parameters[0].Modifiers, m => m.IsKind(SyntaxKind.ThisKeyword));
     }
 }
 

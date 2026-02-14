@@ -1,6 +1,0 @@
-<Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Disassembly.Sandbox/Disassembly.Sandbox.csproj" />
-    <Project Path="src/Disassembly.Tool/Disassembly.Tool.csproj" />
-  </Folder>
-</Solution>

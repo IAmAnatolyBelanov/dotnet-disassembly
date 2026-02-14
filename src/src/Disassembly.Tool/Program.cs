@@ -1,7 +1,6 @@
 using Disassembly.Tool.Core;
 using Disassembly.Tool.CodeGeneration;
 using Disassembly.Tool.FileSystem;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace Disassembly.Tool;
@@ -232,7 +231,7 @@ class Program
                     var filePath = directoryBuilder.GetFilePathForType(packageRoot, type, fileName);
 
                     var compilationUnit = codeGenerator.GenerateFile(type);
-                    var formatted = Formatter.Format(compilationUnit, new AdhocWorkspace());
+                    var formatted = Formatter.Format(compilationUnit, new Microsoft.CodeAnalysis.AdhocWorkspace());
 
                     File.WriteAllText(filePath, formatted.ToFullString());
                     fileCount++;
