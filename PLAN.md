@@ -11,7 +11,7 @@
 3. Извлечение XML-комментариев
 4. Создание структуры папок: `NugetDisassembly/{PackageName}/{Version}/`
 5. Организация C# файлов по namespace (создание поддиректорий)
-6. Специальная обработка generic типов (имя файла с суффиксом `_Generic`)
+6. Обработка дублирующихся имен классов через счетчик (первое появление: `TypeName.cs`, второе: `TypeName1.cs`, третье: `TypeName2.cs` и т.д.)
 7. Только интерфейсы, без реализации (пустые тела методов или комментарии)
 
 ---
@@ -46,7 +46,7 @@ Disassembly.Tool/
   ├── CodeGeneration/
   │   ├── RoslynCodeGenerator.cs      // Генерация через Roslyn SyntaxFactory
   │   ├── NamespaceOrganizer.cs       // Организация файлов по namespace
-  │   ├── GenericTypeNaming.cs        // Обработка generic (ClassName_Generic.cs)
+  │   ├── FileNameResolver.cs         // Разрешение имен файлов с учетом счетчика (TypeName.cs, TypeName1.cs, ...)
   │   └── MethodBodyGenerator.cs     // Генерация пустых тел или комментариев
   ├── FileSystem/
   │   └── DirectoryStructureBuilder.cs // Создание структуры папок
@@ -123,7 +123,7 @@ Disassembly.Tool/
 3. Генерация методов с сигнатурами (без реализации или с комментарием)
 4. Генерация свойств, полей, событий
 5. Добавление XML-комментариев как тривиальных комментариев
-6. Обработка generic типов (создание файлов с суффиксом `_Generic`)
+6. Обработка дублирующихся имен классов через счетчик (первое появление без индекса, последующие с индексом)
 
 **Пример генерации метода:**
 ```csharp
@@ -146,9 +146,10 @@ public ReturnType MethodName(ParamType param1)
 1. Создание структуры папок: `NugetDisassembly/{PackageName}/{Version}/`
 2. Разделение по namespace (создание поддиректорий)
 3. Именование файлов:
-   - Обычный тип: `TypeName.cs`
-   - Generic тип: `TypeName_Generic.cs`
-   - Обработка конфликтов имен
+   - Первое появление класса: `TypeName.cs`
+   - Второе появление (дубликат): `TypeName1.cs`
+   - Третье появление: `TypeName2.cs`
+   - И так далее (счетчик начинается с 1 для второго файла)
 4. Копирование не-C# файлов (если есть)
 
 **Пример структуры:**
@@ -159,7 +160,7 @@ NugetDisassembly/
           └── Newtonsoft/
               └── Json/
                   ├── JsonConverter.cs
-                  ├── JsonConverter_Generic.cs
+                  ├── JsonConverter1.cs
                   └── Converters/
                       └── StringEnumConverter.cs
 ```
@@ -223,6 +224,6 @@ Options:
 2. Как обрабатывать вложенные типы (nested types)?
 3. Нужна ли поддержка старых форматов проектов (.csproj с packages.config)?
 4. Нужна ли поддержка .NET Framework библиотек?
-5. Как обрабатывать конфликты имен файлов (кроме generic)?
+5. ~~Как обрабатывать конфликты имен файлов (кроме generic)?~~ Решено: использование счетчика (TypeName.cs, TypeName1.cs, TypeName2.cs, ...)
 6. Нужна ли поддержка F# или VB.NET библиотек?
 
