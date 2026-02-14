@@ -57,6 +57,16 @@ public class RoslynCodeGenerator
                 enumDecl = enumDecl.WithMembers(SyntaxFactory.SeparatedList(enumMembers));
             }
             
+            // Добавляем XML комментарии для enum типа
+            if (typeMetadata.OriginalType != null)
+            {
+                var xmlId = XmlDocumentationReader.GenerateTypeXmlId(typeMetadata.OriginalType);
+                if (_typeComments != null && _typeComments.TryGetValue(xmlId, out var typeComments))
+                {
+                    enumDecl = enumDecl.WithLeadingTrivia(GenerateXmlCommentTrivia(typeComments));
+                }
+            }
+            
             // Примечание: вложенные типы в enum не поддерживаются стандартным способом в C#
             // Если они есть в метаданных, они будут обработаны как отдельные типы верхнего уровня
             
@@ -198,6 +208,29 @@ public class RoslynCodeGenerator
                 enumMember = enumMember.WithEqualsValue(
                     SyntaxFactory.EqualsValueClause(valueExpression)
                 );
+            }
+            
+            // Добавляем XML комментарии для enum member
+            // Enum members в XML документации имеют формат F:Namespace.EnumType.MemberName
+            if (_memberComments != null)
+            {
+                var fieldXmlId = XmlDocumentationReader.GenerateMemberXmlId(field);
+                if (_memberComments.TryGetValue(fieldXmlId, out var memberComment) && 
+                    !string.IsNullOrWhiteSpace(memberComment.Summary))
+                {
+                    // Для enum members используем только Summary
+                    var xmlBuilder = new System.Text.StringBuilder();
+                    xmlBuilder.AppendLine("/// <summary>");
+                    foreach (var line in memberComment.Summary.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None))
+                    {
+                        xmlBuilder.AppendLine($"/// {line}");
+                    }
+                    xmlBuilder.AppendLine("/// </summary>");
+                    
+                    var xmlText = xmlBuilder.ToString();
+                    var trivia = SyntaxFactory.ParseLeadingTrivia(xmlText);
+                    enumMember = enumMember.WithLeadingTrivia(trivia);
+                }
             }
             
             enumMembers.Add(enumMember);
