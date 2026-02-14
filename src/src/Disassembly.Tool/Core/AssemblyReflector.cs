@@ -264,9 +264,9 @@ public class AssemblyReflector
     private MemberMetadata? ExtractMethodMetadata(MethodInfo method)
     {
         var parameters = method.GetParameters()
-            .Select(p => new ParameterMetadata(
+            .Select((p, index) => new ParameterMetadata(
                 p.Name ?? "param",
-                GetTypeDisplayName(p.ParameterType),
+                GetTypeDisplayName(p.ParameterType, isNullable: NullableReferenceTypeHelper.IsParameterNullable(p), member: method, genericArgumentIndex: index),
                 p.IsOptional,
                 p.HasDefaultValue ? p.DefaultValue : null
             ))
@@ -287,9 +287,9 @@ public class AssemblyReflector
     private MemberMetadata? ExtractPropertyMetadata(PropertyInfo property)
     {
         var parameters = property.GetIndexParameters()
-            .Select(p => new ParameterMetadata(
+            .Select((p, index) => new ParameterMetadata(
                 p.Name ?? "index",
-                GetTypeDisplayName(p.ParameterType),
+                GetTypeDisplayName(p.ParameterType, isNullable: NullableReferenceTypeHelper.IsParameterNullable(p), member: property, genericArgumentIndex: index),
                 p.IsOptional,
                 p.HasDefaultValue ? p.DefaultValue : null
             ))
@@ -309,7 +309,8 @@ public class AssemblyReflector
 
     private MemberMetadata? ExtractFieldMetadata(FieldInfo field)
     {
-        var signature = $"{GetTypeDisplayName(field.FieldType)} {field.Name}";
+        var typeName = GetTypeDisplayName(field.FieldType, isNullable: NullableReferenceTypeHelper.IsFieldTypeNullable(field), member: field);
+        var signature = $"{typeName} {field.Name}";
 
         return new MemberMetadata(
             field.Name,
@@ -323,7 +324,10 @@ public class AssemblyReflector
 
     private MemberMetadata? ExtractEventMetadata(EventInfo eventInfo)
     {
-        var signature = $"event {GetTypeDisplayName(eventInfo.EventHandlerType!)} {eventInfo.Name}";
+        var typeName = eventInfo.EventHandlerType != null 
+            ? GetTypeDisplayName(eventInfo.EventHandlerType, isNullable: NullableReferenceTypeHelper.IsEventTypeNullable(eventInfo), member: eventInfo)
+            : "object";
+        var signature = $"event {typeName} {eventInfo.Name}";
 
         return new MemberMetadata(
             eventInfo.Name,
@@ -338,9 +342,9 @@ public class AssemblyReflector
     private MemberMetadata? ExtractConstructorMetadata(ConstructorInfo constructor)
     {
         var parameters = constructor.GetParameters()
-            .Select(p => new ParameterMetadata(
+            .Select((p, index) => new ParameterMetadata(
                 p.Name ?? "param",
-                GetTypeDisplayName(p.ParameterType),
+                GetTypeDisplayName(p.ParameterType, isNullable: NullableReferenceTypeHelper.IsParameterNullable(p), member: constructor, genericArgumentIndex: index),
                 p.IsOptional,
                 p.HasDefaultValue ? p.DefaultValue : null
             ))
@@ -372,14 +376,14 @@ public class AssemblyReflector
 
     private string BuildMethodSignature(MethodInfo method, List<ParameterMetadata> parameters)
     {
-        var returnType = GetTypeDisplayName(method.ReturnType);
+        var returnType = GetTypeDisplayName(method.ReturnType, isNullable: NullableReferenceTypeHelper.IsReturnTypeNullable(method), member: method);
         var paramStr = string.Join(", ", parameters.Select(p => $"{p.TypeName} {p.Name}"));
         return $"{returnType} {method.Name}({paramStr})";
     }
 
     private string BuildPropertySignature(PropertyInfo property, List<ParameterMetadata> parameters)
     {
-        var typeName = GetTypeDisplayName(property.PropertyType);
+        var typeName = GetTypeDisplayName(property.PropertyType, isNullable: NullableReferenceTypeHelper.IsPropertyTypeNullable(property), member: property);
         if (parameters.Count > 0)
         {
             var paramStr = string.Join(", ", parameters.Select(p => $"{p.TypeName} {p.Name}"));
@@ -394,14 +398,14 @@ public class AssemblyReflector
         return $"{constructor.DeclaringType?.Name}({paramStr})";
     }
 
-    private string GetTypeDisplayName(Type type)
+    private string GetTypeDisplayName(Type type, bool isNullable = false, MemberInfo? member = null, int genericArgumentIndex = -1)
     {
         if (type.IsGenericParameter)
             return type.Name;
 
         if (type.IsArray)
         {
-            var elementType = GetTypeDisplayName(type.GetElementType()!);
+            var elementType = GetTypeDisplayName(type.GetElementType()!, isNullable: false, member: member);
             return $"{elementType}[]";
         }
 
@@ -415,15 +419,27 @@ public class AssemblyReflector
             }
 
             var genericArgs = type.GetGenericArguments()
-                .Select(GetTypeDisplayName)
+                .Select((arg, index) => GetTypeDisplayName(
+                    arg, 
+                    isNullable: member != null && NullableReferenceTypeHelper.IsGenericArgumentNullable(arg, index, member),
+                    member: member,
+                    genericArgumentIndex: index))
                 .ToList();
 
-            return $"{name}<{string.Join(", ", genericArgs)}>";
+            var result = $"{name}<{string.Join(", ", genericArgs)}>";
+            
+            // Добавляем ? для nullable reference types
+            if (isNullable && !type.IsValueType)
+            {
+                result += "?";
+            }
+            
+            return result;
         }
 
         if (type.IsByRef)
         {
-            return GetTypeDisplayName(type.GetElementType()!) + "&";
+            return GetTypeDisplayName(type.GetElementType()!, isNullable: false, member: member) + "&";
         }
 
         // Простые типы
@@ -448,11 +464,19 @@ public class AssemblyReflector
         if (type == typeof(decimal))
             return "decimal";
         if (type == typeof(string))
-            return "string";
+            return isNullable ? "string?" : "string";
         if (type == typeof(object))
-            return "object";
+            return isNullable ? "object?" : "object";
 
-        return type.Name;
+        var resultName = type.Name;
+        
+        // Добавляем ? для nullable reference types
+        if (isNullable && !type.IsValueType)
+        {
+            resultName += "?";
+        }
+        
+        return resultName;
     }
 
     public void Dispose()

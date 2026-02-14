@@ -272,9 +272,19 @@ public class RoslynCodeGenerator
         if (memberMetadata.OriginalMember is not System.Reflection.MethodInfo methodInfo)
             throw new InvalidOperationException("Method metadata must have OriginalMember");
 
-        var returnType = SyntaxFactory.ParseTypeName(memberMetadata.ReturnType != null 
-            ? GetTypeDisplayName(memberMetadata.ReturnType) 
-            : "void");
+        string returnTypeName;
+        if (memberMetadata.ReturnType != null)
+        {
+            // Проверяем, является ли возвращаемый тип nullable reference type
+            var isNullable = NullableReferenceTypeHelper.IsReturnTypeNullable(methodInfo);
+            returnTypeName = GetTypeDisplayName(memberMetadata.ReturnType, isNullable: isNullable);
+        }
+        else
+        {
+            returnTypeName = "void";
+        }
+        
+        var returnType = SyntaxFactory.ParseTypeName(returnTypeName);
 
         var method = SyntaxFactory.MethodDeclaration(returnType, memberMetadata.Name)
             .WithModifiers(GetMemberModifiers(methodInfo))
@@ -301,7 +311,8 @@ public class RoslynCodeGenerator
         if (memberMetadata.OriginalMember is not System.Reflection.PropertyInfo propertyInfo)
             throw new InvalidOperationException("Property metadata must have OriginalMember");
 
-        var type = SyntaxFactory.ParseTypeName(GetTypeDisplayName(propertyInfo.PropertyType));
+        var isNullable = NullableReferenceTypeHelper.IsPropertyTypeNullable(propertyInfo);
+        var type = SyntaxFactory.ParseTypeName(GetTypeDisplayName(propertyInfo.PropertyType, isNullable: isNullable));
 
         // Генерируем аксессоры
         var accessors = new List<AccessorDeclarationSyntax>();
@@ -362,7 +373,8 @@ public class RoslynCodeGenerator
             throw new InvalidOperationException("Enum fields should be handled by GenerateEnumMembers");
         }
 
-        var type = SyntaxFactory.ParseTypeName(GetTypeDisplayName(fieldInfo.FieldType));
+        var isNullable = NullableReferenceTypeHelper.IsFieldTypeNullable(fieldInfo);
+        var type = SyntaxFactory.ParseTypeName(GetTypeDisplayName(fieldInfo.FieldType, isNullable: isNullable));
         var variable = SyntaxFactory.VariableDeclarator(fieldInfo.Name);
         var declaration = SyntaxFactory.VariableDeclaration(type)
             .WithVariables(SyntaxFactory.SingletonSeparatedList(variable));
@@ -376,7 +388,11 @@ public class RoslynCodeGenerator
         if (memberMetadata.OriginalMember is not System.Reflection.EventInfo eventInfo)
             throw new InvalidOperationException("Event metadata must have OriginalMember");
 
-        var type = SyntaxFactory.ParseTypeName(GetTypeDisplayName(eventInfo.EventHandlerType!));
+        if (eventInfo.EventHandlerType == null)
+            throw new InvalidOperationException("Event must have EventHandlerType");
+
+        var isNullable = NullableReferenceTypeHelper.IsEventTypeNullable(eventInfo);
+        var type = SyntaxFactory.ParseTypeName(GetTypeDisplayName(eventInfo.EventHandlerType, isNullable: isNullable));
         var variable = SyntaxFactory.VariableDeclarator(eventInfo.Name);
         var declaration = SyntaxFactory.VariableDeclaration(type)
             .WithVariables(SyntaxFactory.SingletonSeparatedList(variable));
@@ -589,14 +605,14 @@ public class RoslynCodeGenerator
         return baseTypes;
     }
 
-    private string GetTypeDisplayName(Type type)
+    private string GetTypeDisplayName(Type type, bool isNullable = false)
     {
         if (type.IsGenericParameter)
             return type.Name;
 
         if (type.IsArray)
         {
-            var elementType = GetTypeDisplayName(type.GetElementType()!);
+            var elementType = GetTypeDisplayName(type.GetElementType()!, isNullable: false);
             return $"{elementType}[]";
         }
 
@@ -616,10 +632,18 @@ public class RoslynCodeGenerator
             }
 
             var genericArgs = type.GetGenericArguments()
-                .Select(GetTypeDisplayName)
+                .Select(arg => GetTypeDisplayName(arg, isNullable: false))
                 .ToList();
 
-            return $"{name}<{string.Join(", ", genericArgs)}>";
+            var result = $"{name}<{string.Join(", ", genericArgs)}>";
+            
+            // Добавляем ? для nullable reference types
+            if (isNullable && !type.IsValueType)
+            {
+                result += "?";
+            }
+            
+            return result;
         }
 
         // Простые типы
@@ -644,17 +668,22 @@ public class RoslynCodeGenerator
         if (type == typeof(decimal))
             return "decimal";
         if (type == typeof(string))
-            return "string";
+            return isNullable ? "string?" : "string";
         if (type == typeof(object))
-            return "object";
+            return isNullable ? "object?" : "object";
 
         // Используем полное имя с namespace
-        if (!string.IsNullOrEmpty(type.Namespace))
+        var resultName = !string.IsNullOrEmpty(type.Namespace)
+            ? $"{type.Namespace}.{type.Name}"
+            : type.Name;
+        
+        // Добавляем ? для nullable reference types
+        if (isNullable && !type.IsValueType)
         {
-            return $"{type.Namespace}.{type.Name}";
+            resultName += "?";
         }
-
-        return type.Name;
+        
+        return resultName;
     }
 
     /// <summary>
