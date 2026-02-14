@@ -28,8 +28,8 @@
                        │
                        ▼
 ┌─────────────────────────────────────────────────────────────┐
-│          3. Assembly Metadata Reader (Mono.Cecil)           │
-│  • Чтение метаданных без загрузки сборки                    │
+│          3. Assembly Metadata Reader (System.Reflection)    │
+│  • Загрузка сборки через Assembly.LoadFrom()               │
 │  • Извлечение типов (классы, интерфейсы, структуры)         │
 │  • Извлечение членов (методы, свойства, поля)               │
 │  • Обработка generic типов                                   │
@@ -117,15 +117,17 @@ NuGetPackageResolver
     └── List<PackageInfo>
 ```
 
-### 3. Assembly Metadata Reader (Mono.Cecil)
+### 3. Assembly Metadata Reader (System.Reflection)
 
 ```
-CecilMetadataReader
+AssemblyReflector
+├── LoadAssembly(string dllPath)
+│   └── Assembly
 ├── ReadAssembly(string dllPath)
 │   └── AssemblyMetadata
 │       ├── Types: List<TypeMetadata>
 │       └── References: List<string>
-├── ExtractTypeMetadata(TypeDefinition)
+├── ExtractTypeMetadata(Type)
 │   └── TypeMetadata
 │       ├── Name: string
 │       ├── Namespace: string
@@ -133,7 +135,7 @@ CecilMetadataReader
 │       ├── GenericParameters: List<string>
 │       ├── Members: List<MemberMetadata>
 │       └── Visibility: MemberVisibility
-└── ExtractMemberMetadata(MemberDefinition)
+└── ExtractMemberMetadata(MemberInfo)
     └── MemberMetadata
         ├── Name: string
         ├── Type: MemberType (Method, Property, Field, Event)
@@ -226,7 +228,7 @@ Solution (.sln)
     │               ├─→ DLL: ~/.nuget/packages/newtonsoft.json/13.0.4/lib/netstandard2.0/Newtonsoft.Json.dll
     │               └─→ XML: ~/.nuget/packages/newtonsoft.json/13.0.4/lib/netstandard2.0/Newtonsoft.Json.xml
     │                       │
-    │                       ├─→ Mono.Cecil: Чтение метаданных
+    │                       ├─→ System.Reflection: Загрузка и чтение метаданных
     │                       │       │
     │                       │       └─→ TypeMetadata[]
     │                       │               │
@@ -263,7 +265,7 @@ TypeMetadata + Comments
 - Тип: `JsonConverter<T>` в namespace `Newtonsoft.Json`
 
 **Обработка:**
-1. Mono.Cecil извлекает: `TypeName = "JsonConverter", IsGeneric = true, GenericParameters = ["T"]`
+1. System.Reflection извлекает: `TypeName = "JsonConverter", IsGeneric = true, GenericParameters = ["T"]`
 2. Visibility Filter: `IsPublic = true` ✓
 3. Code Generator создает:
    ```csharp
