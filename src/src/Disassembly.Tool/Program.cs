@@ -18,6 +18,9 @@ class Program
         string? solutionPath = null;
         string? projectPath = null;
         string outputPath = "./NugetDisassembly";
+        var exclude = new HashSet<string>(StringComparer.Ordinal);
+        var include = new HashSet<string>(StringComparer.Ordinal);
+        bool includeDefault = false;
 
         // Простой парсинг аргументов
         for (int i = 0; i < args.Length; i++)
@@ -41,6 +44,21 @@ class Program
                     {
                         outputPath = args[++i];
                     }
+                    break;
+                case "--exclude" or "-e":
+                    if (i + 1 < args.Length)
+                    {
+                        PackageFilter.AddParsedNames(exclude, args[++i]);
+                    }
+                    break;
+                case "--include" or "-i":
+                    if (i + 1 < args.Length)
+                    {
+                        PackageFilter.AddParsedNames(include, args[++i]);
+                    }
+                    break;
+                case "--include-default":
+                    includeDefault = true;
                     break;
                 case "--help" or "-h":
                     PrintUsage();
@@ -67,11 +85,11 @@ class Program
         {
             if (!string.IsNullOrWhiteSpace(solutionPath))
             {
-                ProcessSolution(solutionPath, outputPath);
+                ProcessSolution(solutionPath, outputPath, exclude, include, includeDefault);
             }
             else if (!string.IsNullOrWhiteSpace(projectPath))
             {
-                ProcessProject(projectPath, outputPath);
+                ProcessProject(projectPath, outputPath, exclude, include, includeDefault);
             }
             return 0;
         }
@@ -89,14 +107,18 @@ class Program
         Console.WriteLine();
         Console.WriteLine("Options:");
         Console.WriteLine("  --solution, -s <path>    Path to .sln file (required if --project is not specified)");
-        Console.WriteLine("  --project, -p <path>      Path to .csproj file (required if --solution is not specified)");
+        Console.WriteLine("  --project, -p <path>     Path to .csproj file (required if --solution is not specified)");
         Console.WriteLine("  --output, -o <path>      Output directory (default: ./NugetDisassembly)");
+        Console.WriteLine("  --exclude, -e <names>    Package names to exclude (case-sensitive). Can be repeated or comma-separated.");
+        Console.WriteLine("  --include, -i <names>    Package names to include (only these will be processed). Can be repeated or comma-separated.");
+        Console.WriteLine("  --include-default        Do not add default Microsoft BCL libraries to exclude list");
         Console.WriteLine("  --help, -h               Show this help message");
         Console.WriteLine();
         Console.WriteLine("Note: Either --solution or --project must be specified, but not both.");
     }
 
-    static void ProcessSolution(string solutionPath, string outputPath)
+    static void ProcessSolution(string solutionPath, string outputPath,
+        HashSet<string> exclude, HashSet<string> include, bool includeDefault)
     {
         Console.WriteLine($"Processing solution: {solutionPath}");
         Console.WriteLine($"Output directory: {outputPath}");
@@ -111,7 +133,11 @@ class Program
         var packages = packageResolver.GetAllPackages(projects);
         Console.WriteLine($"Found {packages.Count} unique package(s)");
 
-        // 3. Обработка каждого пакета
+        // 3. Фильтрация пакетов
+        packages = PackageFilter.ApplyFilter(packages, exclude, include, includeDefault);
+        Console.WriteLine($"After filter: {packages.Count} package(s) to process");
+
+        // 4. Обработка каждого пакета
         foreach (var package in packages)
         {
             Console.WriteLine($"Processing package: {package.Name} {package.Version}");
@@ -121,7 +147,8 @@ class Program
         Console.WriteLine("Done!");
     }
 
-    static void ProcessProject(string projectPath, string outputPath)
+    static void ProcessProject(string projectPath, string outputPath,
+        HashSet<string> exclude, HashSet<string> include, bool includeDefault)
     {
         Console.WriteLine($"Processing project: {projectPath}");
         Console.WriteLine($"Output directory: {outputPath}");
@@ -144,7 +171,11 @@ class Program
         var packages = packageResolver.GetAllPackages(projects);
         Console.WriteLine($"Found {packages.Count} unique package(s)");
 
-        // 3. Обработка каждого пакета
+        // 3. Фильтрация пакетов
+        packages = PackageFilter.ApplyFilter(packages, exclude, include, includeDefault);
+        Console.WriteLine($"After filter: {packages.Count} package(s) to process");
+
+        // 4. Обработка каждого пакета
         foreach (var package in packages)
         {
             Console.WriteLine($"Processing package: {package.Name} {package.Version}");

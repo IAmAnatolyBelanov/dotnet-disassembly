@@ -38,6 +38,7 @@ Disassembly.Tool/
   ├── Core/
   │   ├── SolutionAnalyzer.cs          ✅ Парсинг .sln/.csproj через XDocument
   │   ├── NuGetPackageResolver.cs      ✅ Поиск в NuGet кэше (~/.nuget/packages)
+  │   ├── PackageFilter.cs             ✅ Фильтрация пакетов (exclude/include/includeDefault)
   │   ├── AssemblyReflector.cs         ✅ Рефлексия сборок через System.Reflection + AssemblyLoadContext
   │   └── XmlDocumentationReader.cs   ❌ НЕ РЕАЛИЗОВАНО
   ├── Filters/
@@ -226,22 +227,33 @@ NugetDisassembly/
 dotnet-disassembly [options]
 
 Options:
-  --solution, -s <path>  Путь к .sln файлу (обязателен, если не указан --project)
-  --project, -p <path>   Путь к .csproj файлу (обязателен, если не указан --solution)
-  --output, -o <path>    Путь для вывода (по умолчанию: ./NugetDisassembly)
-  --help, -h             Показать справку
+  --solution, -s <path>    Путь к .sln файлу (обязателен, если не указан --project)
+  --project, -p <path>     Путь к .csproj файлу (обязателен, если не указан --solution)
+  --output, -o <path>      Путь для вывода (по умолчанию: ./NugetDisassembly)
+  --exclude, -e <names>    Имена пакетов для исключения (case-sensitive). Можно повторять или через запятую.
+  --include, -i <names>    Имена пакетов для включения (обрабатываются только они). Можно повторять или через запятую.
+  --include-default        Не добавлять стандартные Microsoft BCL в exclude
+  --help, -h               Показать справку
 ```
 
 **Реализованные опции:**
 - ✅ `--solution, -s` - путь к .sln файлу (обязателен, если не указан `--project`)
 - ✅ `--project, -p` - путь к .csproj файлу (обязателен, если не указан `--solution`)
 - ✅ `--output, -o` - опциональный параметр, путь для вывода (по умолчанию: `./NugetDisassembly`)
+- ✅ `--exclude, -e` - имена пакетов для исключения (регистрозависимо). Повторяемый параметр или список через запятую
+- ✅ `--include, -i` - имена пакетов для включения (обрабатываются только указанные). Повторяемый параметр или список через запятую
+- ✅ `--include-default` - не добавлять стандартные Microsoft BCL (System.Linq, System.Collections и др.) в список исключений
 - ✅ `--help, -h` - справка
+
+**Фильтрация пакетов:**
+- По умолчанию стандартные библиотеки Microsoft (System.Linq, System.Collections, System.Numerics и др.) автоматически исключаются из обработки
+- `--exclude` добавляет пакеты к исключениям (или к дефолтным, если `--include-default` не указан)
+- `--include` ограничивает обработку только указанными пакетами; при наличии и include, и exclude из include исключаются пакеты из exclude
+- Сравнение имён регистрозависимое
 
 **Примечание:** Должен быть указан либо `--solution`, либо `--project`, но не оба одновременно.
 
 **Не реализованные опции:**
-- ❌ `--packages <list>` - фильтрация по конкретным пакетам
 - ❌ `--include-private` - включение private членов
 - ❌ `--include-implementation` - включение реализаций методов
 
@@ -256,7 +268,7 @@ Options:
 ## Текущий статус реализации
 
 ### ✅ Реализовано:
-- CLI инструмент с базовыми опциями
+- CLI инструмент с базовыми опциями и фильтрацией пакетов (--exclude, --include, --include-default)
 - Парсинг .sln и .csproj файлов
 - Анализ как всего решения (.sln), так и отдельного проекта (.csproj)
 - Поиск и резолвинг NuGet пакетов в кэше
@@ -278,7 +290,7 @@ Options:
 
 ### ❌ Не реализовано:
 - Парсинг и интеграция XML комментариев в генерируемый код
-- Дополнительные CLI опции (--packages, --include-private, --include-implementation)
+- Дополнительные CLI опции (--include-private, --include-implementation)
 - Копирование не-C# файлов из пакетов
 
 ---

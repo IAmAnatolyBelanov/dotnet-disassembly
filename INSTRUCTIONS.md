@@ -51,10 +51,10 @@ dotnet <путь-к-bin/Release/net10.0/Disassembly.Tool.dll> --solution <пут
 
 ```bash
 # Анализ всего решения
-dotnet-disassembly --solution <путь-к-файлу.sln> [--output <путь-к-директории>]
+dotnet-disassembly --solution <путь-к-файлу.sln> [--output <путь-к-директории>] [--exclude <имена>] [--include <имена>] [--include-default]
 
 # Анализ отдельного проекта
-dotnet-disassembly --project <путь-к-файлу.csproj> [--output <путь-к-директории>]
+dotnet-disassembly --project <путь-к-файлу.csproj> [--output <путь-к-директории>] [--exclude <имена>] [--include <имена>] [--include-default]
 ```
 
 ### Параметры
@@ -62,9 +62,20 @@ dotnet-disassembly --project <путь-к-файлу.csproj> [--output <путь
 - `--solution, -s <path>` — Путь к файлу решения (.sln). Обязателен, если не указан `--project`
 - `--project, -p <path>` — Путь к файлу проекта (.csproj). Обязателен, если не указан `--solution`
 - `--output, -o <path>` — **Опциональный параметр**. Путь к директории для вывода результатов. По умолчанию: `./NugetDisassembly`
+- `--exclude, -e <names>` — **Опциональный параметр**. Имена пакетов для исключения из обработки (регистрозависимо). Можно указывать несколько раз или перечислить через запятую
+- `--include, -i <names>` — **Опциональный параметр**. Имена пакетов для включения — обрабатываются только указанные. Можно указывать несколько раз или перечислить через запятую
+- `--include-default` — **Опциональный флаг**. Не добавлять стандартные библиотеки Microsoft BCL (System.Linq, System.Collections, System.Numerics и др.) в список исключений
 - `--help, -h` — Показать справку по использованию
 
 **Примечание:** Должен быть указан либо `--solution`, либо `--project`, но не оба одновременно.
+
+### Фильтрация пакетов
+
+По умолчанию инструмент исключает из обработки стандартные библиотеки Microsoft (System.Linq, System.Collections, System.Numerics, System.Threading.Tasks и др.) — они широко известны и не несут дополнительной пользы для AI-агента. Фильтрация работает по полному имени пакета (регистрозависимо, версия не учитывается).
+
+- **`--exclude`** — добавляет пакеты к списку исключений. Если `--include-default` не указан, к вашим исключениям добавляются стандартные Microsoft BCL
+- **`--include`** — обрабатываются только указанные пакеты. Если пакет есть и в include, и в exclude — он исключается
+- **`--include-default`** — отключает автоматическое исключение стандартных Microsoft BCL
 
 ### Примеры использования
 
@@ -114,6 +125,40 @@ dotnet-disassembly -p MyProject.csproj -o ./api
 
 ```bash
 dotnet-disassembly --help
+```
+
+#### Пример 5: Исключение пакетов
+
+```bash
+# Исключить Newtonsoft.Json из обработки
+dotnet-disassembly --solution MySolution.sln --exclude Newtonsoft.Json
+
+# Исключить несколько пакетов (повторяемый параметр)
+dotnet-disassembly -s MySolution.sln -e Newtonsoft.Json -e Serilog
+
+# Исключить несколько пакетов (через запятую)
+dotnet-disassembly -s MySolution.sln -e "Newtonsoft.Json,Serilog,AutoMapper"
+```
+
+#### Пример 6: Обработка только указанных пакетов
+
+```bash
+# Обработать только Newtonsoft.Json и Microsoft.Extensions.Logging
+dotnet-disassembly --solution MySolution.sln --include "Newtonsoft.Json,Microsoft.Extensions.Logging"
+```
+
+#### Пример 7: Включить стандартные Microsoft BCL
+
+```bash
+# Обработать все пакеты, включая System.Linq, System.Collections и др.
+dotnet-disassembly --solution MySolution.sln --include-default
+```
+
+#### Пример 8: Комбинация include и exclude
+
+```bash
+# Обработать только A, B, C, но исключить B — в итоге обработаются A и C
+dotnet-disassembly -s MySolution.sln -i "PackageA,PackageB,PackageC" -e PackageB
 ```
 
 ## Структура выходных данных
@@ -391,7 +436,20 @@ dotnet-disassembly -p MyProject.csproj -o ./documentation/api
 # Использовать сгенерированные файлы для создания документации
 ```
 
-### Сценарий 3: Интеграция в CI/CD
+### Сценарий 3: Фильтрация пакетов
+
+```bash
+# Обработать только сторонние библиотеки (исключить стандартные Microsoft BCL — по умолчанию)
+dotnet-disassembly -s MySolution.sln -o ./api
+
+# Обработать только конкретные пакеты
+dotnet-disassembly -s MySolution.sln -i "Newtonsoft.Json,Serilog" -o ./api
+
+# Исключить из обработки ненужные пакеты
+dotnet-disassembly -s MySolution.sln -e "AutoMapper,FluentValidation" -o ./api
+```
+
+### Сценарий 4: Интеграция в CI/CD
 
 ```bash
 #!/bin/bash
